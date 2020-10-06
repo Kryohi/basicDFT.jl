@@ -1,5 +1,5 @@
 using basicDFT
-using Test, BenchmarkTools
+using Test
 
 const tol = 1e-4
 
