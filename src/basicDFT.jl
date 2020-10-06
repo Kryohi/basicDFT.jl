@@ -1,5 +1,6 @@
 module basicDFT
 
+using LinearAlgebra, Printf, DataFrames, CSV
 include("numerov.jl")
 
 # add missing directories in current folder
