@@ -1,5 +1,4 @@
-#using basicDFT
-include("../src/numerov.jl")
+using basicDFT
 using Test, BenchmarkTools
 
 const tol = 1e-4
@@ -16,15 +15,10 @@ const tol = 1e-4
     trueeigv = 0.5:1:6.5
     @test all(x -> abs(x)<tol, eigv .- trueeigv)
 
-    # 3D harmonic oscillator (l=0, l=1) eigenvalue tests on Numerov.jl
+    # 3D harmonic oscillator (l=1) eigenvalue test on Numerov.jl
     V = map(x->0.5*x^2, grid)
-
-    eigv, _ = Numerov(0, nmax, grid, V, bc_0=[0., h^l], Estep=2e-2)
-    trueeigv = 1.5:2:13.5
-    @test all(x -> abs(x)<tol, eigv .- trueeigv)
-
-    eigv, _ = Numerov(1, nmax, grid, V, bc_0=[0., h^l], Estep=2e-2)
-    trueeigv = trueeigv .+ 1
+    eigv, _ = Numerov(1, nmax, grid, V, bc_0=[0., h], Estep=2e-2)
+    trueeigv = 2.5:2:14.5
     @test all(x -> abs(x)<tol, eigv .- trueeigv)
 
 
