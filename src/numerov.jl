@@ -21,7 +21,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         throw(ArgumentError(bc_0, "boundary conditions must contain two points"))
     end
 
-    xmin = length(bc0)+1
+    xmin = length(bc_0)+1
     xmax = length(grid)
     h = grid[2]-grid[1]
 
