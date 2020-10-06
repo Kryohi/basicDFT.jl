@@ -1,94 +1,103 @@
+include("common_math.jl")
 
+# TODO
+# check everything
+# more general handling of V_ext and local_energy
+# always use simpson_integral()?
 
 # Kohn-Sham potential
-function V_ks(double r, const double *rho)
+function V_ks(r::Float64, V_ext::Function, rho::Vector)
 
     # Exchange-correlation potential
-    double V_xc = (-0.25*pow(3/pi,1./3)*pow(rho[(int)(h*r)],-2./3) - 0.14667*pow(4/(3*pi),1./3)*pow(rho[(int)(h*r)],-2./3)/(0.78+3/(4*pi*rho[(int)(h*r)])))*local_energy(rho[(int)(h*r)]) + local_energy(rho[(int)(h*r)]);
+    rho_r = rho[round(Int,h*r)]
+    V_xc = (-0.25*cbrt(3/pi)*pow(rho_r,-2/3) - 0.14667*cbrt(4/(3*pi))*pow(rho_r,-2/3) / (0.78+3/(4*pi*rho_r))) * local_energy(rho_r) + local_energy(rho_r)
 
-    return V_ext(r) + V_h(r, rho) + V_xc;
+    return V_ext(r) + V_h(r, rho) + V_xc
 end
 
 
-function V_ext(double r)
+# Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy
+function V_h(r::Float64, rho::Vector)
+
+    V_h = 0.
+    x = round(Int,h*r)
+
+    # Simpson integral
+    for i = 2:2:x-1
+        V_h += h * (rho[i-1]*(h*(i-1)) + 4*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3
+    end
+
+    for i = x:2:lenght(rho)-1
+        V_h += h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / (3*r)
+    end
+    return 4*pi*V_h
+end
+
+function V_ext(r::Float64)
 
     if (r>Rc)
-        return -4*pi*rho_b*Rc*Rc*Rc/(3*r);
+        return -4*pi*rho_b*Rc*Rc*Rc/(3*r)
     else
-        return 2*pi*rho_b*(r*r/3-Rc*Rc);
+        return 2*pi*rho_b*(r*r/3-Rc*Rc)
+    end
 end
-
-# Hartee potential in the Kohn-Sham equation, also used to compute the Hartree energy
-function V_h(double r, const double *rho)
-
-    double V_h = 0.;
-    for (int i=1; i < (int)(h*r)-1; i+=2)
-        V_h += h * (rho[i-1]*(h*(i-1)) + 4.*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3.;
-
-    for (int i=(int)(h*r); i < gridlength-1; i+=2)
-        V_h += h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4.*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / (3.*r);
-
-    return 4*pi*V_h;
-end
-
 
 
 # Energy functional
-function E_ks(double *rho)
+function E_ks(rho::Vector)
 
-    return T_S(rho) + E_ext(rho) + E_H(rho) + E_XC(rho);
+    return T_S(rho) + E_ext(rho) + E_H(rho) + E_XC(rho)
 end
 
 # External energy
-function E_ext(double *rho)
+function E_ext(rho::Vector, V_ext::Function)
 
-    double rhoVext[gridlength];
-    for (int i=0; i < gridlength; i++)
-        rhoVext[i] = rho[i]*V_ext(i*h)
-    end
+    rhoVext = rho .* V_ext.(0:h:h*length(rho)-h)
 
-    return simpson_integral(rhoVext, gridlength, h);
+    return simpson_integral(rhoVext, length(rho), h);
 end
 
 # Hartree energy TODO check it bc i'm really not sure why i'm programming at BUC 10 minutes before closure
-function E_H(double *rho)
+function E_H(rho::Vector)
 
-    double E_h = 0;
-    double integrand[gridlength];
+    E_h = 0.
+    integrand = rho .* V_h.(0:h:h*length(rho)-h)
 
-    for (int i=0; i < gridlength; i++)
-        integrand[i] = V_h(i*h, rho)*rho[i];
+    for i = 2:2:length(rho)-1
+        E_h += h*(rho[i-1]*integrand[i-1] + 4*rho[i]*integrand[i] + rho[i+1]*integrand[i+1])/3
+    end
 
-    for (int i=1; i < gridlength-1; i+=2)
-        E_h += h*(rho[i-1]*integrand[i-1] + 4.*rho[i]*integrand[i] + rho[i+1]*integrand[i+1])/3.;
-
-    return E_h/2; #check this
+    return E_h/2  #check this
 end
 
 # Exchange-correlation energy
-function E_XC(double *rho)
+function E_XC(rho::Vector)
 
-    double E_xc = 0;
-    for (int i=1; i < gridlength-1; i+=2)
-        E_xc += h*(rho[i-1]*local_energy(rho[i-1]) + 4.*rho[i]*local_energy(rho[i]) + rho[i+1]*local_energy(rho[i+1]))/3.;
+    E_xc = 0.
+    # simpson integration
+    for i = 2:2:length(rho)-1
+        E_xc += h*(rho[i-1]*local_energy(rho[i-1]) + 4*rho[i]*local_energy(rho[i]) + rho[i+1]*local_energy(rho[i+1]))/3
+    end
 
     return E_xc;
 end
 
 
 # Kohn–Sham kinetic energy (should take the ks orbitals as input)
-function T_S(double *phi)
+function T_S(phi::Vector)
 
-    integrand[gridlength-4]; #excludes extrema used as boundary conditions
+    #excludes extrema used as boundary conditions
+    integrand = zeros(Float64, gridlength-4)
 
-    for(int i=2; i<gridlength-2; i++)
-        integrand[i-2] = der5(phi,i,h) * der5(phi,i,h);
+    for i = 3:gridlength-2
+        integrand[i-2] = der5(phi,i,h) * der5(phi,i,h)
+    end
 
     return h2m * simpson_integral(integrand, gridlength-4, h);
 end
 
 
 # Local energy used in the LDA
-@inline function local_energy(rho)
-    return -0.75*pow(3*rho/pi, 1/3) - 0.44/(0.78 + 3/(4*pi*rho));
+@inline function local_energy(rho::Float64)
+    return -0.75*cbrt(3*rho/pi) - 0.44/(0.78 + 3/(4*pi*rho))
 end

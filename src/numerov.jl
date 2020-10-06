@@ -1,15 +1,11 @@
 using LinearAlgebra, Printf
+include("common_math.jl")
 
 const h2m = 0.5
 
 
-# TODO:
-# understand if it is ever useful to have longer than 2 boundary conditions, simplify code
-# better explain the need for yc
-# check boundary conditions for 1D HO
-
 # Performs the whole algorithm and finds the spectrum up to the n-th level
-# Returns a Spectrum struct
+# Returns the found eingenvalues and eigenvectors
 
 function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Estep=-1., verbose=false)
 
@@ -190,35 +186,7 @@ function numerov_backward!(h::Float64, xc::Int64, xmax::Int64, k2, yb)
 end
 
 
-function secant(f::Function, p1, p2, eps, nmax)
-    p = 0.
-    for n = 1:nmax
-        p = p2 - f(p2)*(p2-p1)/(f(p2)-f(p1))
-        if abs(p-p2) < eps || f(p) == 0
-            return p, f(p)
-        end
-        p1 = p2
-        p2 = p
-    end
-
-    y = f(p)
-    error("Method did not converge. The last iteration gives $p with function value $y")
-end
-
-# only use on convex functions, choose p1 and p2 carefully
-function secant(f::Vector, p1::Int, p2::Int, eps::Int, nmax::Int)
-    p = 0.
-    @inbounds for n = 1:nmax
-        p = round(Int, p2 - f[p2]*(p2-p1)/(f[p2]-f[p1]))
-        if abs(p-p2) < eps
-            return p, f[p]
-        end
-        p1 = p2
-        p2 = p
-    end
-    y = f[p]
-    error("Method did not converge. The last iteration gives $p with function value $y")
-end
-
-
-@inline der5(F::Vector, x::Int, h::Float64) = (-F[x+2]+8*F[x+1]-8*F[x-1]+F[x-2]) / (12*h)
+# TODO:
+# understand if it is ever useful to have longer than 2 boundary conditions, simplify code
+# better explain the need for yc
+# check boundary conditions for 1D HO
