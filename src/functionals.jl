@@ -6,55 +6,92 @@ include("common_math.jl")
 # always use simpson_integral()?
 
 # Kohn-Sham potential
-function V_ks(r::Float64, V_ext::Function, rho::Vector)
+
+function V_ks(grid::Vector, V_ext::Vector, rho::Vector)
+    h = grid[2]-grid[1]
 
     # Exchange-correlation potential
-    rho_r = rho[round(Int,h*r)]
-    V_xc = (-0.25*cbrt(3/pi)*pow(rho_r,-2/3) - 0.14667*cbrt(4/(3*pi))*pow(rho_r,-2/3) / (0.78+3/(4*pi*rho_r))) * local_energy(rho_r) + local_energy(rho_r)
+    # replaces all zeros in rho
+    rho[findall(rho.==0.0)] .= minimum(rho[findall(rho.>0.0)])
+    rho23 = rho .^ (-2/3)
+    println("rho23[1] = ", rho23[1])
+    V_xc = (-0.25*cbrt(3/pi) .* rho23 .- 0.14667 .* cbrt.(4/(3*pi)) .* rho23 ./ (0.78 .+ 3 ./ (4*pi.*(rho.+1e-12)))) .* local_energy.(rho) .+ local_energy.(rho)
 
-    return V_ext(r) + V_h(r, rho) + V_xc
+    Vks = V_ext .+ V_h(grid, rho) .+ V_xc
+    println("Vxc[1] = ", V_xc[1])
+
+    return Vks
 end
 
 
 # Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy
-function V_h(r::Float64, rho::Vector)
+#
+# function V_h(grid::Array, rho::Vector)
+#     Vh = zeros(Float64, length(rho))
+#     h = grid[2]-grid[1]
+#
+#     for i = 2:2:length(grid)-1
+#         Vh[end] += h * (rho[i-1]*(h*(i-1)) + 4*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3
+#     end
+#     for i = 2:2:length(grid)-1
+#         Vh[1] += h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / (3*grid[2])
+#     end
+#     Vh[1] = 4*pi*Vh[1]
+#
+#     for x = 2:length(grid)-1
+#         # Simpson integral
+#         for i = 2:2:x-1
+#             Vh[x] += h * (rho[i-1]*(h*(i-1)) + 4*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3
+#         end
+#         for i = x:2:length(rho)-1
+#             Vh[x] += h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / (3*grid[x+1]) # what do in 0
+#         end
+#         Vh[x] = 4*pi*Vh[x]
+#     end
+#
+#     return Vh
+# end
 
-    V_h = 0.
-    x = round(Int,h*r)
 
-    # Simpson integral
-    for i = 2:2:x-1
-        V_h += h * (rho[i-1]*(h*(i-1)) + 4*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3
+function V_h(grid::Array, rho::Vector)
+    Vh = zeros(Float64, length(rho))
+    Vh1 = zeros(Float64, length(rho))
+    Vh2 = zeros(Float64, length(rho))
+    h = grid[2]-grid[1]
+
+    for i = 2:2:length(grid)-1
+        Vh1[i] = h * (rho[i-1]*(h*(i-1)) + 4*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3
     end
-
-    for i = x:2:lenght(rho)-1
-        V_h += h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / (3*r)
+    for i = 2:2:length(grid)-1
+        Vh2[i] = h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / 3
     end
-    return 4*pi*V_h
+    Vh1[1] = h*rho[1]*grid[1]
+    Vh1[end] = Vh1[end] + h*rho[end]*grid[end]
+    Vh2[1] = h*rho[1]*grid[1]^2
+    Vh2[end] = Vh1[end] + h*rho[end]*grid[end]^2
+
+    Vh1 .= (4*pi) .* Vh1
+    Vh2 .= (4*pi) .* Vh2
+
+    Vh[1] = sum(Vh2)/grid[2]
+    for i = 2:length(grid)
+        Vh[i] = sum(Vh1[1:i-1]) + sum(Vh2[i:length(grid)])/grid[i]
+    end
+    println("Vh[1] = ", Vh[1])
+    return Vh
 end
 
-function V_ext(r::Float64)
-
-    if (r>Rc)
-        return -4*pi*rho_b*Rc*Rc*Rc/(3*r)
-    else
-        return 2*pi*rho_b*(r*r/3-Rc*Rc)
-    end
-end
 
 
 # Energy functional
-function E_ks(rho::Vector)
+function E_ks(rho::Vector, V_ext::Vector)
 
-    return T_S(rho) + E_ext(rho) + E_H(rho) + E_XC(rho)
+    return T_S(rho) + E_ext(rho, V_ext) + E_H(rho) + E_XC(rho)
 end
 
 # External energy
-function E_ext(rho::Vector, V_ext::Function)
-
-    rhoVext = rho .* V_ext.(0:h:h*length(rho)-h)
-
-    return simpson_integral(rhoVext, length(rho), h);
+function E_ext(rho::Vector, V_ext::Vector)
+    return simpson_integral(rho .* V_ext, length(rho), h)
 end
 
 # Hartree energy TODO check it bc i'm really not sure why i'm programming at BUC 10 minutes before closure

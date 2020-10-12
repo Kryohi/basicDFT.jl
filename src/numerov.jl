@@ -12,9 +12,11 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
     if length(grid) != length(V)
         throw(ArgumentError(grid, "length of grid and V must match"))
     end
-
     if (length(bc_0) != 2)
         throw(ArgumentError(bc_0, "boundary conditions must contain two points"))
+    end
+    if any(x->isnan(x), V)
+        throw(error("Potential V contains NaNs"))
     end
 
     xmin = length(bc_0)+1
@@ -33,15 +35,14 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
     # eigenvalues found
     eigv = zeros(Float64, nmax)
 
-
     # precalculation of the known terms (independent of E)
     for x = 1:xmax
         centrifugal[x] = l*(l+1)/(x*h*x*h+1e-14)
     end
 
     # boundary conditions, if provided (otherwise exponential decay will be used)
-    bc_0_exp = (bc_0[1] == -1.0)
-    bc_end_exp = (bc_end[1] == -1.0)
+    bc_0_exp = (bc_0[1] == -1.)
+    bc_end_exp = (bc_end[1] == -1.)
     if !bc_0_exp
         yf[1] = bc_0[1]
         yf[2] = bc_0[2]
@@ -54,9 +55,12 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
     # if Estep is not provided as argument, we use the small difference of V near the minimum
     Vmin, Vmin_idx = findmin(V)
+    println(Vmin)
+    println(Vmin_idx)
     (Estep == -1.0) && (Estep = abs(Vmin-V[Vmin_idx+1])*100)
     # starting (inferior) energy for the Numerov algorithm
     E = Vmin+Estep+1e-9
+    verbose && @printf("Starting at E = %f", E)
     # number of eigenvalues found
     nfound = 1
     # temporary variable with the previous value of the log derivative difference of yf and yb
@@ -68,12 +72,15 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
     while (nfound <= nmax)
 
         # we search for the point of intersection of V with the current E
-        #_, xc = findmin(abs.(reverse(E .- V)))
-        xc, _ = secant(E .- V, (xmax*9)÷10, xmax-1, 10, 10^3)
+        _, xc = findmin(abs.(reverse(E .- V)))
+        xc = xmax - xc
+        (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
+        #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
+        #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
 
         # we run forward and backward Numerov, store the results in yf and yb
         # and compute the difference in the derivative of the logarithms at xc
-        delta = findDelta!(E, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, yf, yb)
+        delta = findDelta!(E, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb)
 
         # We are searching for the zeros of delta, with increasing values of E, so
         # if there is a change in sign, start the finer search of the 0 of delta(E)
@@ -82,12 +89,13 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
             verbose && @printf("\n[Numerov] Found a point of inversion at %0.9f - %0.9f\n", E-Estep, E)
 
             eigv[nfound], _ = secant(e ->
-                findDelta!(e, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, yf, yb),
+                findDelta!(e, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb),
                 E-Estep, E, 1e-5, 10^4)
-            # might be slow, check for alternatives to anonymous function
+
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
             _, xc = findmin(abs.(eigv[nfound] .- V))
+            (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
 
             # put together yf and yb to form the eigenfunction
             for x = 1:xc
@@ -100,9 +108,9 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
             # normalize the eigenfunction
             norm2 = norm(eigf[:,nfound])
             verbose && println("norm=",norm2)
-            #eigf[:,nfound] = eigf[:,nfound] ./ norm2
+            eigf[:,nfound] = eigf[:,nfound] ./ norm2
 
-            # update the numeber of solutions found
+            # update the number of solutions found
             nfound += 1
         end
 
@@ -119,7 +127,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 end
 
 
-function findDelta!(E, V::Array, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, yf, yb)
+function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb)
 
     # Boundary conditions at rmin
     if bc_0_exp
@@ -132,9 +140,12 @@ function findDelta!(E, V::Array, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_en
         yb[xmax-1] = exp(-sqrt(abs(E)/h2m)*(xmax-1)*h)
     end
 
-    # we search for the point of intersection of V with the current E
-    #diff = E .- V # abs?
-    xc, _ = secant(E .- V, (xmax*9)÷10, xmax-1, 10, 10^3)
+    # we search for the last point of intersection of V with the current E
+    _, xc = findmin(abs.(reverse(E .- V)))
+    xc = xmax - xc
+    (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
+    verbose && println("xc = ", xc)
+    #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
 
     # calculation of the
     k2 .= (E .- V) ./ h2m .- centrifugal
@@ -144,10 +155,10 @@ function findDelta!(E, V::Array, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_en
 
     delta = der5(yf,xc,h)/yf[xc] - der5(yb,xc,h)/yb[xc]
 
-    #@printf("yf[xc-1] = %0.9f,\tyf[xc] = %0.9f,\tyf[xc+1]=%0.9f\n", yf[xc-1], yf[xc], yf[xc+1])
-    #@printf("yb[xc-1] = %0.9f,\tyb[xc] = %0.9f,\tyb[xc+1]=%0.9f\n", yb[xc-1], yb[xc], yb[xc+1])
-    #@printf("derforward = %0.12f,  derback = %0.12f\n", der5(yf,xc,h)/yf[xc],der5(yb,xc,h)/#yb[xc])
-    #@printf("E = %f\tDelta rough = %f\n", E, delta)
+    verbose && @printf("yf[xc-1] = %0.9f,\tyf[xc] = %0.9f,\tyf[xc+1]=%0.9f\n", yf[xc-1], yf[xc], yf[xc+1])
+    verbose && @printf("yb[xc-1] = %0.9f,\tyb[xc] = %0.9f,\tyb[xc+1]=%0.9f\n", yb[xc-1], yb[xc], yb[xc+1])
+    verbose && @printf("derforward = %0.12f,  derback = %0.12f\n", der5(yf,xc,h)/yf[xc],der5(yb,xc,h)/yb[xc])
+    verbose && @printf("E = %f\tDelta rough = %f\n", E, delta)
 
     return delta
 end
@@ -179,6 +190,7 @@ function numerov_backward!(h::Float64, xc::Int64, xmax::Int64, k2, yb)
 
     @inbounds for x = xmax-2:-1:xc-3
         yb[x] = (yb[x+1]*(2-10*c1) - yb[x+2]*(1+c2)) / (1+c0)
+        #(x < xc+200) && println("yb = ", yb[x])
         c2 = c1
         c1 = c0
         c0 = hh*k2[x-1]/12
