@@ -74,7 +74,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         # we search for the point of intersection of V with the current E
         _, xc = findmin(abs.(reverse(E .- V)))
         xc = xmax - xc
-        (xc > length(grid)-3) && (xc = length(grid)-4)
+        (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
         #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
         #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
 
@@ -91,11 +91,11 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
             eigv[nfound], _ = secant(e ->
                 findDelta!(e, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb),
                 E-Estep, E, 1e-5, 10^4)
-            # might be slow, check for alternatives to anonymous function
 
-            #verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
+
+            verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
             _, xc = findmin(abs.(eigv[nfound] .- V))
-            (xc > length(grid)-3) && (xc = length(grid)-4)
+            (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
 
             # put together yf and yb to form the eigenfunction
             for x = 1:xc
@@ -110,7 +110,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
             verbose && println("norm=",norm2)
             eigf[:,nfound] = eigf[:,nfound] ./ norm2
 
-            # update the numeber of solutions found
+            # update the number of solutions found
             nfound += 1
         end
 
@@ -143,7 +143,7 @@ function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_e
     # we search for the last point of intersection of V with the current E
     _, xc = findmin(abs.(reverse(E .- V)))
     xc = xmax - xc
-    (xc > length(V)-3) && (xc = length(V)-4)
+    (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
     verbose && println("xc = ", xc)
     #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
 
