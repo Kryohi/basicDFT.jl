@@ -7,7 +7,7 @@ const h2m = 0.5
 # Performs the whole algorithm and finds the spectrum up to the n-th level
 # Returns the found eingenvalues and eigenvectors
 
-function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Estep=-1., verbose=false)
+function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Estep=-1., tol=5e-6, verbose=false)
 
     if length(grid) != length(V)
         throw(ArgumentError(grid, "length of grid and V must match"))
@@ -74,7 +74,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         # we search for the point of intersection of V with the current E
         _, xc = findmin(abs.(reverse(E .- V)))
         xc = xmax - xc
-        (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
+        ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside the domain")))
         #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
         #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
 
@@ -85,17 +85,17 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         # We are searching for the zeros of delta, with increasing values of E, so
         # if there is a change in sign, start the finer search of the 0 of delta(E)
         # with the secant method, between E and E-Estep
-        if (delta*prevdelta < 0 && yf[xc]*prev_yc > 0)
+        if (delta*prevdelta < 0 && abs(delta-prevdelta) < 10)
             verbose && @printf("\n[Numerov] Found a point of inversion at %0.9f - %0.9f\n", E-Estep, E)
 
             eigv[nfound], _ = secant(e ->
                 findDelta!(e, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb),
-                E-Estep, E, 1e-5, 10^4)
+                E-Estep, E, tol, 10^4)
 
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
             _, xc = findmin(abs.(eigv[nfound] .- V))
-            (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
+            ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outsidethe domain")))
 
             # put together yf and yb to form the eigenfunction
             for x = 1:xc

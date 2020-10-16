@@ -11,7 +11,7 @@ const tol = 1e-4
     grid = h:h:10
 
     V = map(x->0.5*(x-5)^2, grid)
-    eigv, _ = Numerov(0, nmax, grid, V, Estep=3e-2, verbose=true)
+    eigv, _ = Numerov(0, nmax, grid, V, Estep=3e-2)
     trueeigv = 0.5:1:6.5
     @test all(x -> abs(x)<tol, eigv .- trueeigv)
 

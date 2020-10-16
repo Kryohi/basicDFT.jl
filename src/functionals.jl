@@ -71,7 +71,7 @@ function V_h(grid::Vector, rho::Vector)
     Vh1 .= (4*pi) .* Vh1
     Vh2 .= (4*pi) .* Vh2
 
-    Vh[1] = sum(Vh2)/grid[2]
+    Vh[1] = sum(Vh2)/grid[1]
     for i = 2:length(grid)
         Vh[i] = sum(Vh1[1:i-1]) + sum(Vh2[i:length(grid)])/grid[i]
     end
