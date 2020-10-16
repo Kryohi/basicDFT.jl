@@ -55,8 +55,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
     # if Estep is not provided as argument, we use the small difference of V near the minimum
     Vmin, Vmin_idx = findmin(V)
-    println(Vmin)
-    println(Vmin_idx)
+    
     (Estep == -1.0) && (Estep = abs(Vmin-V[Vmin_idx+1])*100)
     # starting (inferior) energy for the Numerov algorithm
     E = Vmin+Estep+1e-9
@@ -94,6 +93,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
+
             _, xc = findmin(abs.(eigv[nfound] .- V))
             ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outsidethe domain")))
 
@@ -165,14 +165,14 @@ end
 
 # finds the
 # xmin is used in order to not overwrite yf at the boundary provided to Numerov
-function numerov_forward!(h::Float64, xc::Int64, xmin::Int64, k2, yf)
+@inbounds function numerov_forward!(h::Float64, xc::Int64, xmin::Int64, k2, yf)
 
     hh = h*h
     c0 = hh*k2[xmin]/12
     c_1 = hh*k2[xmin-1]/12
     c_2 = hh*k2[xmin-2]/12
 
-    @inbounds for x = xmin:xc+3
+    for x = xmin:xc+3
         yf[x] = (yf[x-1]*(2-10*c_1) - yf[x-2]*(1+c_2)) / (1+c0)
         c_2 = c_1
         c_1 = c0
@@ -180,14 +180,14 @@ function numerov_forward!(h::Float64, xc::Int64, xmin::Int64, k2, yf)
     end
 end
 
-function numerov_backward!(h::Float64, xc::Int64, xmax::Int64, k2, yb)
+@inbounds function numerov_backward!(h::Float64, xc::Int64, xmax::Int64, k2, yb)
 
     hh = h*h
     c0 = hh*k2[xmax-2]/12
     c1 = hh*k2[xmax-1]/12
     c2 = hh*k2[xmax]/12
 
-    @inbounds for x = xmax-2:-1:xc-3
+    for x = xmax-2:-1:xc-3
         yb[x] = (yb[x+1]*(2-10*c1) - yb[x+2]*(1+c2)) / (1+c0)
         #(x < xc+200) && println("yb = ", yb[x])
         c2 = c1
@@ -199,5 +199,3 @@ end
 
 # TODO:
 # understand if it is ever useful to have longer than 2 boundary conditions, simplify code
-# better explain the need for yc
-# check boundary conditions for 1D HO

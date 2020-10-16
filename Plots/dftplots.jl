@@ -11,5 +11,5 @@ rhos = [df.rho[i*len+1:(i+1)*len] for i=0:niter]
 eigf_1s = [df.eigf_1s[i*len+1:(i+1)*len] for i=0:niter]
 eigf_1p = [df.eigf_1p[i*len+1:(i+1)*len] for i=0:niter]
 
-plot(grid,rhos[1:4:end])
-plot(grid,Vkss[1:4:end])
+plot(grid,rhos[1:2:end])
+plot(grid,Vkss[1:2:end])
