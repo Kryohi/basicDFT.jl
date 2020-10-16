@@ -15,11 +15,9 @@ function V_ks(grid::Vector, V_ext::Vector, rho::Vector)
     rho[findall(rho.==0.0)] .= minimum(rho[findall(rho.>0.0)])
     rho23 = rho .^ (-2/3)
     println("rho23[1] = ", rho23[1])
-    V_xc = (-0.25*cbrt(3/pi) .* rho23 .- 0.14667 .* cbrt.(4/(3*pi)) .* rho23 ./ (0.78 .+ 3 ./ (4*pi.*(rho.+1e-12)))) .* local_energy.(rho) .+ local_energy.(rho)
+    V_xc = (-0.25*cbrt(3/pi) .* rho23 .- 0.14667 .* cbrt.(4/(3*pi)) .* rho23 ./ (0.78 .+ 3 ./ (4*pi.*rho))) .* local_energy.(rho) .+ local_energy.(rho)
 
     Vks = V_ext .+ V_h(grid, rho) .+ V_xc
-    println("Vxc[1] = ", V_xc[1])
-
     return Vks
 end
 
@@ -53,7 +51,7 @@ end
 # end
 
 
-function V_h(grid::Array, rho::Vector)
+function V_h(grid::Vector, rho::Vector)
     Vh = zeros(Float64, length(rho))
     Vh1 = zeros(Float64, length(rho))
     Vh2 = zeros(Float64, length(rho))
@@ -77,16 +75,16 @@ function V_h(grid::Array, rho::Vector)
     for i = 2:length(grid)
         Vh[i] = sum(Vh1[1:i-1]) + sum(Vh2[i:length(grid)])/grid[i]
     end
-    println("Vh[1] = ", Vh[1])
+    #println("Vh[1] = ", Vh[1])
     return Vh
 end
 
 
 
 # Energy functional
-function E_ks(rho::Vector, V_ext::Vector)
+function E_ks(grid::Vector, rho::Vector, V_ext::Vector)
 
-    return T_S(rho) + E_ext(rho, V_ext) + E_H(rho) + E_XC(rho)
+    return T_S(rho) + E_ext(rho, V_ext) + E_H(grid,rho) + E_XC(rho)
 end
 
 # External energy
@@ -95,10 +93,10 @@ function E_ext(rho::Vector, V_ext::Vector)
 end
 
 # Hartree energy TODO check it bc i'm really not sure why i'm programming at BUC 10 minutes before closure
-function E_H(rho::Vector)
+function E_H(grid::Vector, rho::Vector)
 
     E_h = 0.
-    integrand = rho .* V_h.(0:h:h*length(rho)-h)
+    integrand = rho .* V_h(grid, rho)
 
     for i = 2:2:length(rho)-1
         E_h += h*(rho[i-1]*integrand[i-1] + 4*rho[i]*integrand[i] + rho[i+1]*integrand[i+1])/3
@@ -116,21 +114,21 @@ function E_XC(rho::Vector)
         E_xc += h*(rho[i-1]*local_energy(rho[i-1]) + 4*rho[i]*local_energy(rho[i]) + rho[i+1]*local_energy(rho[i+1]))/3
     end
 
-    return E_xc;
+    return E_xc
 end
 
 
 # Kohn–Sham kinetic energy (should take the ks orbitals as input)
 function T_S(phi::Vector)
-
+    gridlength = length(phi)
     #excludes extrema used as boundary conditions
-    integrand = zeros(Float64, gridlength-4)
+    integrand = zeros(Float64, gridlength)
 
-    for i = 3:gridlength-2
-        integrand[i-2] = der5(phi,i,h) * der5(phi,i,h)
+    for i = 3:gridlength-3
+        integrand[i] = der5(phi,i,h) * der5(phi,i,h)
     end
-
-    return h2m * simpson_integral(integrand, gridlength-4, h);
+    h2m = .5
+    return h2m * simpson_integral(integrand, gridlength, h);
 end
 
 

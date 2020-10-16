@@ -63,11 +63,10 @@ end
 
 
 function simpson_integral(f::Vector, xmax::Int, h)
-    #xmax should be even, and the value of the vector should be calculated equally spaced by h
-    integral = 0.
+    integral = h*(f[1]+f[xmax])/2
 
-    for i = 1:2:xmax-1
-        integral += h*(f[i-1] + 4*f[i]+f[i+1])/3
+    for i = 2:2:xmax-1
+        integral += h*(f[i-1] + 4*f[i] + f[i+1])/3
     end
 
     return integral

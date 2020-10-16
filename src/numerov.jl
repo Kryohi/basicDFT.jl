@@ -107,7 +107,6 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
             # normalize the eigenfunction
             norm2 = norm(eigf[:,nfound])
-            verbose && println("norm=",norm2)
             eigf[:,nfound] = eigf[:,nfound] ./ norm2
 
             # update the number of solutions found
