@@ -1,6 +1,7 @@
 module basicDFT
 
 using LinearAlgebra, Printf, CSV, DataFrames
+export LinearAlgebra, Printf, CSV, DataFrames
 include("numerov.jl")
 export Numerov
 

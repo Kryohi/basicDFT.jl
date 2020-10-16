@@ -7,7 +7,7 @@ const tol = 1e-4
 
     # 1D harmonic oscillator eigenvalue test on Numerov.jl
     nmax = 7
-    h = 2e-5    # increase this to speed up the tests, but tol will also have to be increased
+    h = 1e-4    # increase this to speed up the tests, but tol will also have to be increased
     grid = h:h:10
 
     V = map(x->0.5*(x-5)^2, grid)
@@ -17,7 +17,7 @@ const tol = 1e-4
 
     # 3D harmonic oscillator (l=1) eigenvalue test on Numerov.jl
     V = map(x->0.5*x^2, grid)
-    eigv, _ = Numerov(1, nmax, grid, V, bc_0=[0., h], Estep=5e-2)
+    eigv, eigf = Numerov(1, nmax, grid, V, bc_0=[0., h], Estep=5e-2)
     trueeigv = 2.5:2:14.5
     @test all(x -> abs(x)<tol, eigv .- trueeigv)
 
