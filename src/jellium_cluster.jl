@@ -13,28 +13,31 @@ rs_Na = 3.93
 Rc(rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
 
-rmax = 10
+rmax = 20
 h = 5e-4
 grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 Vext = V_ext.(grid,Rc(rs_Na),rho_b(rs_Na))
-Vext .= Vext #.+ abs(minimum(Vext))
+Vext .= Vext .+ abs(minimum(Vext))
 
 
 # set the initial trial electron density and boundary conditions
-offset = 0.3
-rho = sin.(pi.*(grid.+offset)./(Rc(rs_Na))).^2
-zero_idx = Int((Rc(rs_Na)-offset)*length(grid)/rmax)
-rho[zero_idx:end] = ones(Float64,length(grid)-zero_idx+1) .* 1e-8
+cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-9
+rho = cos_single.(grid, 12, Rc(rs_Na))
 rho = rho .* 8 ./ norm(rho,1)
+
+# boundary conditions for the initial wf
+bc_0 = [rho[1:2]./6; rho[1:2]./6]
+bc_end = -1 .* ones(Float64,4)
 
 
 # initialize the dataframe to save the data
 data = DataFrame(iteration = zeros(Int16,length(grid)),
-                 Vks = zeros(Float64,length(grid)),
-                 rho = rho,
-                 eigf_1s = zeros(Float64,length(grid)),
-                 eigf_1p = zeros(Float64,length(grid)));
+                  grid = grid,
+                  Vks = zeros(Float64,length(grid)),
+                  rho = rho,
+                  eigf_1s = zeros(Float64,length(grid)),
+                  eigf_1p = zeros(Float64,length(grid)));
 
 
 
@@ -51,6 +54,8 @@ for t = 1:5
       rho_old = rho # save the current density function for later mixing
 
       data_step = kohn_sham_step!(grid, Vext, rho, bc_0, bc_end)
+
+      # save partial results to data
       replace!(data_step.iteration, -1 => Int16(t))
       append!(data,data_step)
 
@@ -60,8 +65,8 @@ for t = 1:5
 
       # mixing of the solution with the old one
       rho .=  α.*rho .+ (1-α).*rho_old
-      bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
-      bc_end .=  α.*bc_end_new .+ (1-α).*bc_end
+      bc_0 =  α.*bc_0_new .+ (1-α).*bc_0
+      bc_end =  α.*bc_end_new .+ (1-α).*bc_end
 
       # Check on the convergence by looking at how different is the new density
       delta = maximum(abs.(rho .- rho_old))
@@ -77,7 +82,7 @@ CSV.write("./Data/ksfunctions.csv", data)
 # computes the mean-field potential Vks, solves the Shrodinger equation for the
 # relevant quantum numbers, computes the new electronic density and returns everything
 # as a dataframe
-function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; Vks_cutoff=1e4, verbose=false)
+function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; Vks_cutoff=1e4, verbose=true)
 
       # total Kohn-Sham potential, function of rho
       Vks = V_ks(grid, Vext, rho)
@@ -94,15 +99,16 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
-                            Vks = Vks,
-                            rho = rho,
-                            eigf_1s = eigf_l0[:,1],
-                            eigf_1p = eigf_l1[:,1])
+                        grid = grid,
+                        Vks = Vks,
+                        rho = rho,
+                        eigf_1s = eigf_l0[:,1],
+                        eigf_1p = eigf_l1[:,1])
 
       # Consistency check through the energy
       E1 = E_ks(grid, rho, Vext)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
-      E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho) + E_XC(rho)
+      E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho) + E_XC(grid,rho)
       verbose && @printf("E_ks = %f\tE_eig = %f\tdiff = %f\n", E1, E2, E2-E1)
 
       return data_tmp
@@ -110,7 +116,7 @@ end
 
 
 function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
-    if (r>Rc)
+    if r > Rc
         return -4*pi*rho_b*Rc^3/(3*r)
     else
         return 2*pi*rho_b*(r*r/3-Rc*Rc)

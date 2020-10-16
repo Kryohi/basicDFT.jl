@@ -84,7 +84,7 @@ end
 # Energy functional
 function E_ks(grid::Vector, rho::Vector, V_ext::Vector)
 
-    return T_S(rho) + E_ext(rho, V_ext) + E_H(grid,rho) + E_XC(rho)
+    return T_S(grid,rho) + E_ext(rho, V_ext) + E_H(grid,rho) + E_XC(grid,rho)
 end
 
 # External energy
@@ -94,7 +94,7 @@ end
 
 # Hartree energy TODO check it bc i'm really not sure why i'm programming at BUC 10 minutes before closure
 function E_H(grid::Vector, rho::Vector)
-
+    h = grid[2]-grid[1]
     E_h = 0.
     integrand = rho .* V_h(grid, rho)
 
@@ -106,8 +106,8 @@ function E_H(grid::Vector, rho::Vector)
 end
 
 # Exchange-correlation energy
-function E_XC(rho::Vector)
-
+function E_XC(grid::Vector, rho::Vector)
+    h = grid[2]-grid[1]
     E_xc = 0.
     # simpson integration
     for i = 2:2:length(rho)-1
@@ -117,16 +117,11 @@ function E_XC(rho::Vector)
     return E_xc
 end
 
-
-# Kohn–Sham kinetic energy (should take the ks orbitals as input)
-function T_S(phi::Vector)
+# Kohn–Sham kinetic energy (NOTE should take the ks orbitals as input?)
+function T_S(grid::Vector, phi::Vector)
     gridlength = length(phi)
-    #excludes extrema used as boundary conditions
-    integrand = zeros(Float64, gridlength)
-
-    for i = 3:gridlength-3
-        integrand[i] = der5(phi,i,h) * der5(phi,i,h)
-    end
+    h = grid[2]-grid[1]
+    integrand = der5(phi,h).^2
     h2m = .5
     return h2m * simpson_integral(integrand, gridlength, h);
 end

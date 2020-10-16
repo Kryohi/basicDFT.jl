@@ -142,7 +142,7 @@ function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_e
     # we search for the last point of intersection of V with the current E
     _, xc = findmin(abs.(reverse(E .- V)))
     xc = xmax - xc
-    (xc > length(V)-3) && (throw(error("xc at the end of the domain")))
+    (xc > length(V)-2) && (throw(error("xc at the end of the domain")))
     verbose && println("xc = ", xc)
     #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
 
