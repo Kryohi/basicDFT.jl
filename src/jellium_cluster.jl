@@ -2,9 +2,9 @@ using basicDFT, Plots, LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
 
 # TODO
+# better fix for rho_old
 # capire perche bcend piccolo rompe numerov?
 # numerov from 0 to Vks cutoff?
-# fix multiple numerov solutions
 # add 2s orbital
 # understand and implement N=20 case
 
@@ -27,6 +27,7 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
       cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-9
       rho = cos_single.(grid, 12, Rc(rs))
       rho = rho .* 8 ./ norm(rho,1)
+      rho_old = rho
 
       # initial boundary conditions for the wavefunctions
       # the bc for different values of l will become different, so here concatenate them
@@ -45,11 +46,11 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
       for t = 1:max_iter
 
             @printf("\nITERATION %d\n", t)
-            rho_old = rho # save the current density function for later mixing
 
             data_step = kohn_sham_step!(grid, Vext, rho, bc_0, bc_end, verbose=verbose)
 
             # Check on the convergence by looking at how different is the new density
+            @show all(rho .== rho_old)
             @show delta = norm(rho .- rho_old)
 
             # save partial results to data
@@ -65,7 +66,9 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
             @show bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
             @show bc_end .=  [-1.;-1.;-1.;-1.] #NOTE was needed to keep the Numerov in check
 
-            if delta < 1e-6
+            rho_old = data.rho[end-2*length(rho)+1:end-length(rho)] # save the current density function for later mixing
+
+            if delta < 1e-4
                   @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
                   #break
             end
@@ -89,7 +92,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       eigv_l1, eigf_l1 = Numerov(1, 2, grid, Vks, bc_0=bc_0[3:4], bc_end=bc_end[3:4], Estep=Estep, verbose=verbose)
 
       # compute the total electron density
-      rho .= 2. *eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-9#./ 3
+      rho .= 2. *eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-10#./ 3
 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
@@ -118,5 +121,5 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
 end
 
 # Juno.@profiler
-@time data = solve_KS(N, rs_Na, α, grid, max_iter=24)
+@time data = solve_KS(N, rs_Na, α, grid, max_iter=20)
 CSV.write("./Data/ksfunctions.csv", data)

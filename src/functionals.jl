@@ -51,7 +51,7 @@ end
 # end
 
 
-function V_h(grid::Vector, rho::Vector)
+@inbounds function V_h(grid::Vector, rho::Vector)
     Vh = zeros(Float64, length(rho))
     Vh1 = zeros(Float64, length(rho))
     Vh2 = zeros(Float64, length(rho))
