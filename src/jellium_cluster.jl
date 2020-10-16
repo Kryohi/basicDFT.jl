@@ -12,13 +12,13 @@ N = 8
 rs_Na = 3.93
 Rc(rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
-rmax = 18
+rmax = 20
 h = 5e-4
 grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 
 
-function solve_KS(N, rs, α, grid; max_iter=20, verbose=true)
+function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
 
       Vext = V_ext.(grid,Rc(rs),rho_b(rs))
       Vext .= Vext #.+ abs(minimum(Vext))
