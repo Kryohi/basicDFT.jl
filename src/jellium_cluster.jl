@@ -7,15 +7,7 @@ include("functionals.jl")
 # numerov from 0 to Vks cutoff?
 # add 2s orbital
 # understand and implement N=20 case
-
-N = 8
-rs_Na = 3.93
-Rc(rs) = cbrt(N)*rs # radius of the positive jellium
-rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
-rmax = 20
-h = 5e-4
-grid = Vector(h:h:rmax)
-α = 0.2 # mixing coefficient of the densities
+# Vh calculated independently to reduce redundancy?
 
 
 function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
@@ -23,9 +15,9 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
       Vext = V_ext.(grid,Rc(rs),rho_b(rs))
       Vext .= Vext #.+ abs(minimum(Vext))
 
-      # set the initial trial electron density and boundary conditions
+      # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-9
-      rho = cos_single.(grid, 12, Rc(rs))
+      rho = cos_single.(grid, 10, 12.4)
       rho = rho .* 8 ./ norm(rho,1)
       rho_old = rho
 
@@ -120,6 +112,16 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
     end
 end
 
+
+N = 8
+rs_Na = 3.93
+Rc(rs) = cbrt(N)*rs # radius of the positive jellium
+rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
+rmax = 20
+h = 5e-4
+grid = Vector(h:h:rmax)
+α = 0.3 # mixing coefficient of the densities
+
 # Juno.@profiler
-@time data = solve_KS(N, rs_Na, α, grid, max_iter=20)
+@time data = solve_KS(N, rs_Na, α, grid, max_iter=30)
 CSV.write("./Data/ksfunctions.csv", data)
