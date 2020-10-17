@@ -8,22 +8,13 @@ include("functionals.jl")
 # add 2s orbital
 # understand and implement N=20 case
 
-N = 8
-rs_Na = 3.93
-Rc(rs) = cbrt(N)*rs # radius of the positive jellium
-rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
-rmax = 20
-h = 5e-4
-grid = Vector(h:h:rmax)
-α = 0.2 # mixing coefficient of the densities
-
 
 function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
 
-      Vext = V_ext.(grid,Rc(rs),rho_b(rs))
+      Vext = V_ext.(grid,Rc(N,rs),rho_b(rs))
       Vext .= Vext #.+ abs(minimum(Vext))
 
-      # set the initial trial electron density and boundary conditions
+      # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-9
       rho = cos_single.(grid, 12, Rc(rs))
       rho = rho .* 8 ./ norm(rho,1)
@@ -37,6 +28,7 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
       # initialize the dataframe to save the data
       data = DataFrame(iteration = zeros(Int16,length(grid)),
                   grid = grid,
+                  Vh = zeros(Float64,length(grid)),
                   Vks = zeros(Float64,length(grid)),
                   rho = rho,
                   eigf_1s = zeros(Float64,length(grid)),
@@ -64,7 +56,7 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
             # mixing of the solution with the old one
             rho .=  α.*rho .+ (1-α).*rho_old
             @show bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
-            @show bc_end .=  [-1.;-1.;-1.;-1.] #NOTE was needed to keep the Numerov in check
+            @show bc_end .=  [-1.;-1.;-1.;-1.] #NOTE was needed to keep Numerov in check
 
             rho_old = data.rho[end-2*length(rho)+1:end-length(rho)] # save the current density function for later mixing
 
@@ -82,8 +74,13 @@ end
 # as a dataframe
 function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; Vks_cutoff=1e4, Estep=3e-3, verbose=false)
 
-      # total Kohn-Sham potential, function of rho
-      Vks = V_ks(grid, Vext, rho)
+      # replaces all zeros in rho
+      rho[findall(rho.==0.0)] .= minimum(rho[findall(rho.>0.0)])
+      @show minimum(rho[findall(rho.>0.0)])
+      # Hartree potential term, hotspot of the code
+      Vh = V_h(grid, rho)
+      # Kohn-Sham potential, function of rho
+      Vks = Vext .+ Vh .+ V_xc(rho)
       # sharp cutoff on the potential
       Vks[Vks.>Vks_cutoff] .= Vks_cutoff
 
@@ -97,6 +94,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
                         grid = grid,
+                        Vh = Vh,
                         Vks = Vks,
                         rho = rho,
                         eigf_1s = eigf_l0[:,1],
@@ -105,7 +103,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       # Consistency check through the energy
       #E1 = E_ks(grid, rho, Vext)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
-      #E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho) + E_XC(grid,rho)
+      #E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) + E_XC(grid,rho)
       #verbose && @printf("E_ks = %f\tE_eig = %f\tdiff = %f\n", E1, E2, E2-E1)
 
       return data_tmp
@@ -120,6 +118,16 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
     end
 end
 
+
+N = 8
+rs_Na = 3.93
+Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
+rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
+rmax = 20
+h = 5e-4
+grid = Vector(h:h:rmax)
+α = 0.3 # mixing coefficient of the densities
+
 # Juno.@profiler
-@time data = solve_KS(N, rs_Na, α, grid, max_iter=20)
+@time data = solve_KS(N, rs_Na, α, grid, max_iter=60)
 CSV.write("./Data/ksfunctions.csv", data)

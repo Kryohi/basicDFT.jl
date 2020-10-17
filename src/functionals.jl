@@ -5,21 +5,9 @@ include("common_math.jl")
 # more general handling of V_ext and local_energy
 # always use simpson_integral()?
 
-# Kohn-Sham potential
 
-function V_ks(grid::Vector, V_ext::Vector, rho::Vector)
-    h = grid[2]-grid[1]
-
-    # Exchange-correlation potential
-    # replaces all zeros in rho
-    rho[findall(rho.==0.0)] .= minimum(rho[findall(rho.>0.0)])
-    rho23 = rho .^ (-2/3)
-    println("rho23[1] = ", rho23[1])
-    V_xc = (-0.25*cbrt(3/pi) .* rho23 .- 0.14667 .* cbrt.(4/(3*pi)) .* rho23 ./ (0.78 .+ 3 ./ (4*pi.*rho))) .* local_energy.(rho) .+ local_energy.(rho)
-
-    Vks = V_ext .+ V_h(grid, rho) .+ V_xc
-    return Vks
-end
+# Exchange-correlation potential
+V_xc(rho::Vector) = (-0.25*cbrt(3/pi) .* rho.^(-2/3) .- 0.14667 .* cbrt.(4/(3*pi)) .* rho.^(-2/3) ./ (0.78 .+ 3 ./ (4*pi.*rho))) .* local_energy.(rho) .+ local_energy.(rho)
 
 
 # Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy
@@ -50,7 +38,7 @@ end
 #     return Vh
 # end
 
-
+# Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy
 @inbounds function V_h(grid::Vector, rho::Vector)
     Vh = zeros(Float64, length(rho))
     Vh1 = zeros(Float64, length(rho))
@@ -104,6 +92,19 @@ function E_H(grid::Vector, rho::Vector)
 
     return E_h/2  #check this
 end
+# same function but reusing V_H precalculated
+function E_H(grid::Vector, rho::Vector, Vh::Vector)
+    h = grid[2]-grid[1]
+    E_h = 0.
+    integrand = rho .* Vh
+
+    for i = 2:2:length(rho)-1
+        E_h += h*(rho[i-1]*integrand[i-1] + 4*rho[i]*integrand[i] + rho[i+1]*integrand[i+1])/3
+    end
+
+    return E_h/2  #check this
+end
+
 
 # Exchange-correlation energy
 function E_XC(grid::Vector, rho::Vector)

@@ -1,15 +1,19 @@
 using DataFrames, CSV, Plots
 
-df = DataFrame(CSV.File("./Data/ksfunctions.csv"))
+N = 8
+rs_Na = 3.93
 
-len = count(df.iteration.==0)
-niter = last(df.iteration)
+df8 = DataFrame(CSV.File("./Data/ksfunctions.csv"))
 
-grid = df.grid[1:len]
-Vkss = [df.Vks[i*len+1:(i+1)*len] for i=0:niter]
-rhos = [df.rho[i*len+1:(i+1)*len] for i=0:niter]
-eigf_1s = [df.eigf_1s[i*len+1:(i+1)*len] for i=0:niter]
-eigf_1p = [df.eigf_1p[i*len+1:(i+1)*len] for i=0:niter]
+len = count(df8.iteration.==0)
+niter = last(df8.iteration)
 
-plot(grid,rhos[1:2:end])
-plot(grid,Vkss[1:2:end])
+grid = df8.grid[1:len]
+Vext = V_ext.(grid,Rc(8,rs_Na),rho_b(rs_Na))
+Vkss = [df8.Vks[i*len+1:(i+1)*len] for i=0:niter]
+rhos = [df8.rho[i*len+1:(i+1)*len] for i=0:niter]
+eigf_1s = [df8.eigf_1s[i*len+1:(i+1)*len] for i=0:niter]
+eigf_1p = [df8.eigf_1p[i*len+1:(i+1)*len] for i=0:niter]
+
+plot(grid,rhos[1:5:end])
+plot(grid,Vkss[1:5:end])
