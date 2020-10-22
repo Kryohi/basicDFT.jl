@@ -23,20 +23,21 @@ end
 
 # Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy
 
-function V_h(grid::Vector, rho::Vector)
+@inbounds function V_h(grid::Vector, rho::Vector)
     Vh = zeros(Float64, length(rho))
     h = grid[2]-grid[1]
 
     Vh[end] = 4pi*simpson_integral(rho.*grid, h)
     Vh[1] = 4pi*simpson_integral(grid.^2 .* rho, h)/grid[1]
 
-    # threading seems to work without any race condition
+    # this is the most expensive function to compute, so we use multithreading
+    # (which unexpectedly seems to work without much user input, with a 40% faster program using 2 cores)
     Threads.@threads for x = 2:length(grid)-1
-
-        Vh[x] = simpson_integral(rho.*grid, x, h)
-
+        for i = 2:2:x-1
+            Vh[x] += h * (rho[i-1]*h*(i-1) + 4.0* rho[i]*h*i + rho[i+1]*h*(i+1)) / 3.
+        end
         for i = x+1:2:length(rho)-1
-            Vh[x] += h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / (3*grid[x])
+            Vh[x] += h * (rho[i-1]*h*(i-1)*h*(i-1) + 4.0*rho[i]*h*i*h*i + rho[i+1]*h*(i+1)*h*(i+1)) / (3.0* grid[x])
         end
         Vh[x] = 4*pi*Vh[x]  # from spherical integration
     end

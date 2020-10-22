@@ -3,27 +3,24 @@ include("functionals.jl")
 
 # TODO
 # better fix for rho_old
-# stride for data save
 # capire perche bcend piccolo rompe numerov?
-# numerov from 0 to Vks cutoff?
-# add 2s orbital
 # understand and implement N=20 case
 
 
-function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
+function solve_KS(N, rs, α, grid; max_iter=20, stride=2, verbose=false)
 
       Vext = V_ext.(grid,Rc(N,rs),rho_b(rs))
       Vext .= Vext #.+ abs(minimum(Vext))
 
       # set the initial trial electron density
-      cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-9
+      cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-12
       rho = cos_single.(grid, 18, Rc(N,rs)-1)
-      rho = rho .* 8 ./ norm(rho,1)
+      rho = rho .* N ./ norm(rho,1)
       rho_old = rho
 
       # initial boundary conditions for the wavefunctions (s,p,d)
       # the bc for different values of l will become different, so here concatenate them
-      bc_0 = [rho[1:2]./6; rho[1:2]./6; rho[1:2]./6]
+      bc_0 = [rho[1:2]./N; rho[1:2]./N; rho[1:2]./N].^(0.5)
       bc_end = -1 .* ones(Float64,3*2)
 
       # initialize the dataframes to save the data
@@ -57,7 +54,7 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
 
             # save partial results to data
             replace!(data_step.iteration, -1 => Int16(t))
-            append!(data,data_step)
+            t%stride==1 && append!(data,data_step)
             push!(energies, energy_tmp)
 
             # next boundary conditions will be based on the current eigenfunctions
@@ -69,9 +66,9 @@ function solve_KS(N, rs, α, grid; max_iter=20, verbose=false)
             @show bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
             @show bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] #NOTE was needed to keep Numerov in check
 
-            rho_old = data.rho[end-2*length(rho)+1:end-length(rho)] # save the current density function for later mixing
+            rho_old = rho # save the current density function for later mixing
 
-            if delta < 1e-4
+            if delta < 1e-8
                   @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
                   #break
             end
@@ -85,9 +82,7 @@ end
 # as a dataframe
 function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; Vks_cutoff=1e4, Estep=3e-3, verbose=false)
 
-      # replaces all zeros in rho
-      #rho[findall(rho.==0.0)] .= minimum(rho[findall(rho.>0.0)])
-      @show minimum(rho[findall(rho.>0.0)])
+      #@show minimum(rho[findall(rho.>0.0)])
       # Hartree potential term, hotspot of the code
       Vh = V_h(grid, rho)
       # Kohn-Sham potential, function of rho
@@ -102,6 +97,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
 
       # compute the total electron density
       rho .= 2. *eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-15
+      rho .+= 2. *eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
@@ -120,7 +116,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) + E_XC(grid,rho)
       #verbose && @printf("E_ks = %f\tE_eig = %f\tdiff = %f\n", E1, E2, E2-E1)
 
-      return data_tmp, [eigv_l0[1], eigv_l0[2], eigv_l1[1], eigv_l2[1], E1, E2]
+      return data_tmp, [eigv_l0; eigv_l1[1]; eigv_l2[1]; E1; E2]
 end
 
 
@@ -133,16 +129,17 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
 end
 
 
-N = 8
-rs_Na = 3.93
 Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
-rho_b(rs) = 3/(4*pi*rs^3) # density of charge inside the nucleus
-rmax = 22
-h = 5e-4
+rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
+N = 20
+rs_Na = 3.93
+rs_K = 4.86
+rmax = 26
+h = 2.5e-4
 grid = Vector(h:h:rmax)
-α = 0.3 # mixing coefficient of the densities
+α = 0.2 # mixing coefficient of the densities
 
 # Juno.@profiler
-@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=20, verbose=true)
-CSV.write("./Data/ksfunctions.csv", data)
-CSV.write("./Data/ksenergy.csv", energy)
+@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=20, stride=2, verbose=false)
+CSV.write("./Data/ksfunctions_$N.csv", data)
+CSV.write("./Data/ksenergy_$N.csv", energy)

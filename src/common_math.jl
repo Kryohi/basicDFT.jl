@@ -93,20 +93,20 @@ end
 
 
 
-function simpson_integral(f::Vector, xmax::Int, h)
+@inbounds function simpson_integral(f::Vector, xmax::Int, h)
     integral = h*(f[1]+f[xmax])/2
 
-    @inbounds for i = 2:2:xmax-1
+    for i = 2:2:xmax-1
         integral += h*(f[i-1] + 4*f[i] + f[i+1])/3
     end
 
     return integral
 end
 
-function simpson_integral(f::Vector, h)
+@inbounds function simpson_integral(f::Vector, h)
     integral = h*(f[1]+f[end])/2
 
-    @inbounds for i = 2:2:length(f)-1
+    for i = 2:2:length(f)-1
         integral += h*(f[i-1] + 4*f[i] + f[i+1])/3
     end
 
