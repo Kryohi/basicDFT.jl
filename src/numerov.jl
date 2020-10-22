@@ -55,7 +55,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
     # if Estep is not provided as argument, we use the small difference of V near the minimum
     Vmin, Vmin_idx = findmin(V)
-    
+
     (Estep == -1.0) && (Estep = abs(Vmin-V[Vmin_idx+1])*100)
     # starting (inferior) energy for the Numerov algorithm
     E = Vmin+Estep+1e-9
@@ -73,9 +73,9 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         # we search for the point of intersection of V with the current E
         _, xc = findmin(abs.(reverse(E .- V)))
         xc = xmax - xc
-        ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside the domain")))
         #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
         #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
+        ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside the domain")))
 
         # we run forward and backward Numerov, store the results in yf and yb
         # and compute the difference in the derivative of the logarithms at xc
@@ -91,11 +91,10 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
                 findDelta!(e, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb),
                 E-Estep, E, tol, 10^4)
 
-
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
 
-            _, xc = findmin(abs.(eigv[nfound] .- V))
-            ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outsidethe domain")))
+            _, xc = findmin(abs.(reverse(eigv[nfound] .- V)))
+            xc = xmax - xc
 
             # put together yf and yb to form the eigenfunction
             for x = 1:xc
@@ -142,9 +141,9 @@ function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_e
     # we search for the last point of intersection of V with the current E
     _, xc = findmin(abs.(reverse(E .- V)))
     xc = xmax - xc
-    (xc > length(V)-2) && (throw(error("xc at the end of the domain")))
-    verbose && println("xc = ", xc)
     #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
+    ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside of the domain")))
+    verbose && println("xc = ", xc)
 
     # calculation of the
     k2 .= (E .- V) ./ h2m .- centrifugal
@@ -157,16 +156,15 @@ function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_e
     verbose && @printf("yf[xc-1] = %0.9f,\tyf[xc] = %0.9f,\tyf[xc+1]=%0.9f\n", yf[xc-1], yf[xc], yf[xc+1])
     verbose && @printf("yb[xc-1] = %0.9f,\tyb[xc] = %0.9f,\tyb[xc+1]=%0.9f\n", yb[xc-1], yb[xc], yb[xc+1])
     verbose && @printf("derforward = %0.12f,  derback = %0.12f\n", der5(yf,xc,h)/yf[xc],der5(yb,xc,h)/yb[xc])
-    verbose && @printf("E = %f\tDelta rough = %f\n", E, delta)
+    verbose && @printf("E = %f\tDelta = %f\n", E, delta)
 
     return delta
 end
 
 
-# finds the
+# propagate the numerov solution up to xc+3
 # xmin is used in order to not overwrite yf at the boundary provided to Numerov
 @inbounds function numerov_forward!(h::Float64, xc::Int64, xmin::Int64, k2, yf)
-
     hh = h*h
     c0 = hh*k2[xmin]/12
     c_1 = hh*k2[xmin-1]/12
@@ -181,7 +179,6 @@ end
 end
 
 @inbounds function numerov_backward!(h::Float64, xc::Int64, xmax::Int64, k2, yb)
-
     hh = h*h
     c0 = hh*k2[xmax-2]/12
     c1 = hh*k2[xmax-1]/12
@@ -199,3 +196,5 @@ end
 
 # TODO:
 # understand if it is ever useful to have longer than 2 boundary conditions, simplify code
+# try again to use the secant method instead of the slow find() for the E-V intersection
+# add test with a more complex potential
