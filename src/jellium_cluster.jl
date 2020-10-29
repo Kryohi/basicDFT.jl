@@ -2,6 +2,7 @@ using basicDFT, Plots, LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
 
 # TODO
+# check cubic root in local_energy
 # better fix for rho_old
 # fix delta
 # check numerical instability in the flex of Vh
@@ -98,7 +99,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
 
       # compute the total electron density
       rho .= 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 #.+ 1e-15
-      rho .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
+      #rho .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
@@ -115,7 +116,7 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       E1 = E_ks(grid, rho, Vext, Vh)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
       E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) + E_XC(grid,rho)
-      #verbose && @printf("E_ks = %f\tE_eig = %f\tdiff = %f\n", E1, E2, E2-E1)
+      verbose && @printf("E_ks = %f\tE_eig = %f\tdiff = %f\n", E1, E2, E2-E1)
 
       return data_tmp, [eigv_l0; eigv_l1[1]; eigv_l2[1]; E1; E2]
 end
@@ -132,15 +133,15 @@ end
 
 Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
-N = 20
+N = 8
 rs_Na = 3.93
 rs_K = 4.86
-rmax = 26
-h = 5e-4
+rmax = 28
+h = 2e-4
 grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 
 # Juno.@profiler
-@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=20, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=12, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_$N.csv", data)
 CSV.write("./Data/ksenergy_$N.csv", energy)
