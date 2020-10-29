@@ -2,8 +2,8 @@ using DataFrames, CSV, Plots
 
 rs_Na = 3.93
 
-df8 = DataFrame(CSV.File("./Data/ksfunctions.csv"))
-en8 = DataFrame(CSV.File("./Data/ksenergy.csv"))
+df8 = DataFrame(CSV.File("./Data/ksfunctions_20.csv"))
+en8 = DataFrame(CSV.File("./Data/ksenergy_20.csv"))
 
 len = count(df8.iteration.==0)
 ndata = Int(length(df8.iteration)/len)-1
@@ -24,12 +24,14 @@ plot(grid,rhos[1:1:end])
 plot(grid,Vhs[1:1:end])
 plot(grid,Vxcs[2:1:end])
 plot(grid,Vkss[1:1:end])
-plot(grid,eigf_2s[1:1:end])
+plot(grid,eigf_1s[1:1:end])
 
-
+last_rho = rhos[end]
 last_Vks = Vkss[end]
-plot(grid[800:end],last_Vks[800:end])
-
+last_Vh = Vhs[end]
+last_Vxc = Vxcs[end]
+pVh = plot(grid[100:end-100],last_Vh[100:end-100])
+savefig(pVh, "./Plots/vh.pdf")
 
 ## energy values
 plot(0:niter, en8.e1s)

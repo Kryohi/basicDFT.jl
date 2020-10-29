@@ -3,9 +3,10 @@ include("functionals.jl")
 
 # TODO
 # better fix for rho_old
-# capire perche bcend piccolo rompe numerov?
-# understand and implement N=20 case
-
+# fix delta
+# check numerical instability in the flex of Vh
+# fix energy calculation
+# compare results with different initial condition
 
 function solve_KS(N, rs, α, grid; max_iter=20, stride=2, verbose=false)
 
@@ -14,7 +15,7 @@ function solve_KS(N, rs, α, grid; max_iter=20, stride=2, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-12
-      rho = cos_single.(grid, 18, Rc(N,rs)-1)
+      rho = cos_single.(grid, 18, -1)
       rho = rho .* N ./ norm(rho,1)
       rho_old = rho
 
@@ -68,7 +69,7 @@ function solve_KS(N, rs, α, grid; max_iter=20, stride=2, verbose=false)
 
             rho_old = rho # save the current density function for later mixing
 
-            if delta < 1e-8
+            if (delta < 1e-8) && (t > 1)
                   @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
                   #break
             end
@@ -96,8 +97,8 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       eigv_l2, eigf_l2 = Numerov(2, 1, grid, Vks, bc_0=bc_0[5:6], bc_end=bc_end[5:6], Estep=Estep, verbose=verbose)
 
       # compute the total electron density
-      rho .= 2. *eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-15
-      rho .+= 2. *eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
+      rho .= 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 #.+ 1e-15
+      rho .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
@@ -135,11 +136,11 @@ N = 20
 rs_Na = 3.93
 rs_K = 4.86
 rmax = 26
-h = 2.5e-4
+h = 5e-4
 grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 
 # Juno.@profiler
-@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=20, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=20, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_$N.csv", data)
 CSV.write("./Data/ksenergy_$N.csv", energy)
