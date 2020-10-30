@@ -1,4 +1,7 @@
-using DataFrames, CSV, Plots
+using DataFrames, CSV, Plots, ColorSchemes
+
+Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
+rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
 
 nucl = "K"
 N = 20
@@ -12,16 +15,6 @@ end
 df = DataFrame(CSV.File("./Data/ksfunctions_$(nucl)_$N.csv"))
 en = DataFrame(CSV.File("./Data/ksenergy_$(nucl)_$N.csv"))
 
-<<<<<<< HEAD
-
-cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-9
-rho = cos_single.(grid, 4, 4.9)
-rho = rho .* 8 ./ norm(rho,1)
-plot(grid,rho)
-
-Vhs = [df8.Vh[i*len+1:(i+1)*len] for i=0:ndata]
-Vkss = [df8.Vks[i*len+1:(i+1)*len] for i=0:ndata]
-=======
 len = count(df.iteration.==0)
 ndata = Int(length(df.iteration)/len)-1
 niter = last(df.iteration)
@@ -30,7 +23,6 @@ Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
 
 Vhs = [df.Vh[i*len+1:(i+1)*len] for i=0:ndata]
 Vkss = [df.Vks[i*len+1:(i+1)*len] for i=0:ndata]
->>>>>>> 9e4aa5b714f26c468117d8710a33c65c965a5595
 Vxcs = [Vkss[i+1] .- Vhs[i+1] .- Vext for i=0:ndata]
 rhos = [df.rho[i*len+1:(i+1)*len] for i=0:ndata]
 eigf_1s = [df.eigf_1s[i*len+1:(i+1)*len] for i=0:ndata]
@@ -38,11 +30,27 @@ eigf_2s = [df.eigf_2s[i*len+1:(i+1)*len] for i=0:ndata]
 eigf_1p = [df.eigf_1p[i*len+1:(i+1)*len] for i=0:ndata]
 eigf_1d = [df.eigf_1d[i*len+1:(i+1)*len] for i=0:ndata]
 
-plot(grid,rhos[1:1:end])
-plot(grid,Vhs[1:1:end], ylims=(0, 0.8))
-plot(grid,Vxcs[1:1:end])
-plot(grid,Vkss[1:1:end], ylims=(-Inf, 0.8))
-plot(grid,eigf_2s[1:1:end])
+
+## plots of the evolution of the functions
+N_plots = 8
+strd = Int(floor(ndata/N_plots))
+col = palette([:orange, :purple], length(rhos[1:strd:end]))
+xlim = floor(Int,grid[end]*2/3)
+
+plot(grid,rhos[1:strd:end], xlims=(0, xlim), palette = col, legend=false)
+savefig("./Plots/evol_rho_$(nucl)_$N.pdf")
+plot(grid,Vhs[1:strd:end], xlims=(0, xlim), ylims=(0, 0.8), palette = col, legend=false)
+savefig("./Plots/evol_Vh_$(nucl)_$N.pdf")
+plot(grid,Vxcs[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
+savefig("./Plots/evol_Vxc_$(nucl)_$N.pdf")
+plot(grid,Vkss[2:strd:end], xlims=(0, xlim), ylims=(-Inf, 0.0), palette = col, legend=false)
+savefig("./Plots/evol_Vks_$(nucl)_$N.pdf")
+plot(grid,eigf_1s[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
+savefig("./Plots/evol_1s_$(nucl)_$N.pdf")
+plot(grid,eigf_1d[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
+savefig("./Plots/evol_1d_$(nucl)_$N.pdf")
+
+
 
 # plot of delta
 

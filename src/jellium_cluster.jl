@@ -3,13 +3,12 @@ include("functionals.jl")
 
 # TODO
 # check cubic root in local_energy and fix derivative
-# better fix for rho_old, fix delta
 # check numerical instability in the flex of Vh
 # fix energy calculation
 # compare results with different initial conditions
-# save mixed rho instead of vanilla
+# save partial data to csv
 
-function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
+function solve_KS(N, rs, α, grid; max_iter=60, stride=2, verbose=false)
 
       # calculate the external potential array over the x-axis
       Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
@@ -18,7 +17,6 @@ function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
       rho = cos_single.(grid, 24, -1)
       rho = rho .* N ./ norm(rho,1)
-      rho_old = zeros(Float64, length(rho))
 
       # initial boundary conditions for the wavefunctions (s,p,d)
       # the bc for different values of l will become different, so here we concatenate them
@@ -48,12 +46,7 @@ function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
 
             @printf("\nITERATION %d\n", t)
 
-            data_step, energy_step = kohn_sham_step!(grid, Vext, rho, bc_0, bc_end, N=N, verbose=verbose)
-
-            # Check on the convergence by looking at how different is the new density
-            @show all(data_step.rho .== rho_old)
-            @show delta = norm(rho .- rho_old)
-            @show rho_old[1]
+            data_step, energy_step = kohn_sham_step(grid, Vext, rho, bc_0, bc_end, N=N, verbose=verbose)
 
             # save partial results to data
             replace!(data_step.iteration, -1 => Int16(t))
@@ -65,19 +58,26 @@ function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
             bc_0_new = [data_step.eigf_1s[1:2,1]; data_step.eigf_1p[1:2,1]; data_step.eigf_1d[1:2,1]]
             bc_end_new = [data_step.eigf_1s[end-1:end,1]; data_step.eigf_1p[end-1:end,1]; data_step.eigf_1d[end-1:end,1]]
 
-            # mixing of the solution with the old one
-            rho .=  α.*rho .+ (1-α).*rho_old
+            # mixing of the eigenfunction's extremes with the old ones
             @show bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
             @show bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.]
             #NOTE here we use the "default" end conditions provided by Numerov instead of reusing the old ones
 
-            rho_old = data_step.rho # save the current density function for later mixing
+            # Check on the convergence by looking at how different is the new density
+            @show delta = norm(data_step.rho .- rho)
 
-            if (delta < 1e-8) && (t > 1)
+            # save the found density function to be used and compared in the next iteration
+            rho = data_step.rho
+
+            if (delta < 1e-6)
                   @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
-                  #break
+                  break
+            end
+            if t == max_iter
+                  @warn("\nExiting from the loop after $max_iter iterations, delta = $delta\n")
             end
       end
+
       return data, energies
 end
 
@@ -85,7 +85,7 @@ end
 # computes the mean-field potential Vks, solves the Shrodinger equation for the
 # relevant quantum numbers, computes the new electronic density and returns everything
 # as a dataframe
-function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e4, Estep=2e-3, verbose=false)
+function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e4, Estep=2e-3, verbose=false)
 
       # Hartree potential term, hotspot of the code
       Vh = V_h(grid, rho)
@@ -101,17 +101,20 @@ function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, 
       eigv_l2, eigf_l2 = Numerov(2, 1, grid, Vks, bc_0=bc_0[5:6], bc_end=bc_end[5:6], Estep=Estep, verbose=verbose)
 
       # compute the total electron density
-      rho .= 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 #.+ 1e-15
+      rho_new = 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 #.+ 1e-15
       if N>8
-            rho .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
+            rho_new .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
       end
+
+      # mixing of the found density with the old one
+      rho_new =  α.*rho_new .+ (1-α).*rho
 
       # save the computed functions (note that the vanilla, unmixed rho is saved here)
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
                         grid = grid,
                         Vh = Vh,
                         Vks = Vks,
-                        rho = rho,
+                        rho = rho_new,
                         eigf_1s = eigf_l0[:,1],
                         eigf_2s = eigf_l0[:,2],
                         eigf_1p = eigf_l1[:,1],
@@ -148,13 +151,22 @@ rs_K = 4.86
 rmax = 28
 h = 2.5e-4
 grid = Vector(h:h:rmax)
-α = 0.1 # mixing coefficient of the densities
+α = 0.2 # mixing coefficient of the densities
 
 # Juno.@profiler
-@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=28, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=40, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=28, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=40, stride=2, verbose=false)
+CSV.write("./Data/ksfunctions_K_$N.csv", data)
+CSV.write("./Data/ksenergy_K_$N.csv", energy)
+
+N = 8
+@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=40, stride=2, verbose=false)
+CSV.write("./Data/ksfunctions_Na_$N.csv", data)
+CSV.write("./Data/ksenergy_Na_$N.csv", energy)
+
+@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=40, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
