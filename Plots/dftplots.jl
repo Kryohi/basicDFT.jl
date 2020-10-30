@@ -31,7 +31,9 @@ plot(grid,rhos[1:1:end])
 plot(grid,Vhs[1:1:end], ylims=(0, 0.8))
 plot(grid,Vxcs[1:1:end])
 plot(grid,Vkss[1:1:end], ylims=(-Inf, 0.8))
-plot!(grid,eigf_2s[1:1:end])
+plot(grid,eigf_2s[1:1:end])
+
+# plot of delta
 
 
 ## Plots of the final iteration
@@ -46,35 +48,39 @@ last_1d = eigf_1d[end]
 last_2s = eigf_2s[end]
 
 # plots of the potential components
-plot(grid[100:end-100],Vext[100:end-100])
+plot(grid, Vext, legend=false, xlabel="r", ylabel="Vext")
 savefig("./Plots/Vext_$(nucl)_$N.pdf")
-plot(grid[100:end-100],last_Vh[100:end-100])
+plot(grid[100:end-100], last_Vh[100:end-100], legend=false)
 savefig("./Plots/Vh_$(nucl)_$N.pdf")
-plot(grid[100:end-100],last_Vxc[100:end-100])
+plot(grid, last_Vxc, legend=false)
 savefig("./Plots/Vxc_$(nucl)_$N.pdf")
-plot(grid[100:end-100],last_Vks[100:end-100])
+plot(grid[100:end-100], last_Vks[100:end-100], legend=false)
 savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
+# numerical instability
+plot(grid[29900:30000],last_Vh[29900:30000])
+
+
 # plot of the radial wavefunctions
-plot(grid[1:end÷2],last_1s[1:end÷2], label="1s")
-plot!(grid[1:end÷2],last_1p[1:end÷2], label="1p")
+plot(grid[1:end÷2], last_1s[1:end÷2], label="1s")
+plot!(grid[1:end÷2], last_1p[1:end÷2], label="1p")
 if N==20
-    plot!(grid[1:end÷2],last_1d[1:end÷2], label="1d")
-    plot!(grid[1:end÷2],last_2s[1:end÷2], label="2s")
+    plot!(grid[1:end÷2], last_1d[1:end÷2], label="1d")
+    plot!(grid[1:end÷2], last_2s[1:end÷2], label="2s")
 end
 savefig("./Plots/eigf_$(nucl)_$N.pdf")
 
 # plot of the radial probabilities
-plot(grid[1:end÷2],last_1s[1:end÷2].^2, label="1s")
-plot!(grid[1:end÷2],last_1p[1:end÷2].^2, label="1p")
+plot(grid[1:end÷2], last_1s[1:end÷2].^2, label="1s")
+plot!(grid[1:end÷2], last_1p[1:end÷2].^2, label="1p")
 if N==20
-    plot!(grid[1:end÷2],last_1d[1:end÷2].^2, label="1d")
-    plot!(grid[1:end÷2],last_2s[1:end÷2].^2, label="2s")
+    plot!(grid[1:end÷2], last_1d[1:end÷2].^2, label="1d")
+    plot!(grid[1:end÷2], last_2s[1:end÷2].^2, label="2s")
 end
 savefig("./Plots/eigf_squared_$(nucl)_$N.pdf")
 
 # plot of the total electron radial density
-plot(grid[100:end-100],last_rho[100:end-100])
+plot(grid[1:end÷2], last_rho[1:end÷2])
 savefig("./Plots/rho_$(nucl)_$N.pdf")
 
 

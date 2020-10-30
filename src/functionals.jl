@@ -36,7 +36,7 @@ end
         for i = 2:2:x-1
             Vh[x] += h * (rho[i-1]*h*(i-1)*h*(i-1) + 4.0*rho[i]*h*i*h*i + rho[i+1]*h*(i+1)*h*(i+1)) / (3.0* grid[x])
         end
-        for i = x+1:2:length(rho)-1
+        for i = x:2:length(rho)-1
             Vh[x] += h * (rho[i-1]*h*(i-1) + 4.0* rho[i]*h*i + rho[i+1]*h*(i+1)) / 3.
         end
         Vh[x] = 4pi*Vh[x]  # from spherical integration
@@ -108,7 +108,7 @@ end
 
 # Exchange-correlation energy
 function E_XC(grid::Vector, rho::Vector)
-    
+
     h = grid[2]-grid[1]
     E_xc = simpson_integral(rho .* local_energy.(rho), h)
 

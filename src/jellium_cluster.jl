@@ -3,8 +3,7 @@ include("functionals.jl")
 
 # TODO
 # check cubic root in local_energy and fix derivative
-# better fix for rho_old
-# fix delta
+# better fix for rho_old, fix delta
 # check numerical instability in the flex of Vh
 # fix energy calculation
 # compare results with different initial conditions
@@ -16,10 +15,10 @@ function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
       Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
 
       # set the initial trial electron density
-      cos_single(x,l,c) = cos((x-c)*pi/l)^2 * (abs((x-c)*pi/l)<pi/2) + 1e-12
+      cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
       rho = cos_single.(grid, 24, -1)
       rho = rho .* N ./ norm(rho,1)
-      rho_old = rho
+      rho_old = zeros(Float64, length(rho))
 
       # initial boundary conditions for the wavefunctions (s,p,d)
       # the bc for different values of l will become different, so here we concatenate them
@@ -52,8 +51,9 @@ function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
             data_step, energy_step = kohn_sham_step!(grid, Vext, rho, bc_0, bc_end, N=N, verbose=verbose)
 
             # Check on the convergence by looking at how different is the new density
-            @show all(rho .== rho_old)
+            @show all(data_step.rho .== rho_old)
             @show delta = norm(rho .- rho_old)
+            @show rho_old[1]
 
             # save partial results to data
             replace!(data_step.iteration, -1 => Int16(t))
@@ -71,7 +71,7 @@ function solve_KS(N, rs, α, grid; max_iter=40, stride=2, verbose=false)
             @show bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.]
             #NOTE here we use the "default" end conditions provided by Numerov instead of reusing the old ones
 
-            rho_old = rho # save the current density function for later mixing
+            rho_old = data_step.rho # save the current density function for later mixing
 
             if (delta < 1e-8) && (t > 1)
                   @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
@@ -85,9 +85,8 @@ end
 # computes the mean-field potential Vks, solves the Shrodinger equation for the
 # relevant quantum numbers, computes the new electronic density and returns everything
 # as a dataframe
-function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e4, Estep=3e-3, verbose=false)
+function kohn_sham_step!(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e4, Estep=2e-3, verbose=false)
 
-      #@show minimum(rho[findall(rho.>0.0)])
       # Hartree potential term, hotspot of the code
       Vh = V_h(grid, rho)
       # Kohn-Sham potential, function of rho
@@ -147,7 +146,7 @@ N = 20
 rs_Na = 3.93
 rs_K = 4.86
 rmax = 28
-h = 2e-4
+h = 2.5e-4
 grid = Vector(h:h:rmax)
 α = 0.1 # mixing coefficient of the densities
 
