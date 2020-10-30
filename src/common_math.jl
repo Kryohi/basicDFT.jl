@@ -70,7 +70,7 @@ end
 
 # 5-point numerical derivative at point x
 @inbounds function der5(F::Vector, x::Int, h::Float64)
-    if x>2 && x < length(F)-1
+    if x>2 && x<length(F)-1
         return (-F[x+2]+8*F[x+1]-8*F[x-1]+F[x-2])/(12h)
     else
         return der3(F,x,h)

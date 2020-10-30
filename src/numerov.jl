@@ -48,7 +48,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         yf[2] = bc_0[2]
     end
     if !bc_end_exp
-        yb[xmax-1] = bc_end[1] # check if the order is correct
+        yb[xmax-1] = bc_end[1]
         yb[xmax] = bc_end[2]
     end
     # else they have to be computed at each step (they depend on E)
@@ -64,8 +64,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
     nfound = 1
     # temporary variable with the previous value of the log derivative difference of yf and yb
     prevdelta = 0.
-    # needed because when function flips sign the delta also changes sign producing false positives
-    prev_yc = 0.
+
 
     # Iterative process to find the energy eigenvalues and the corresponding eigenvectors
     while (nfound <= nmax)
@@ -113,7 +112,6 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
         end
 
         prevdelta = delta
-        prev_yc = yf[xc]
         E += Estep
 
         if (E > maximum(V))
@@ -145,7 +143,7 @@ function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_e
     ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside of the domain")))
     verbose && println("xc = ", xc)
 
-    # calculation of the
+    # calculation of the total potential term
     k2 .= (E .- V) ./ h2m .- centrifugal
 
     numerov_forward!(h, xc, xmin, k2, yf)

@@ -1,16 +1,22 @@
 using DataFrames, CSV, Plots
 
-rs_Na = 3.93
-N = 8
+nucl = "K"
+N = 20
 
-df = DataFrame(CSV.File("./Data/ksfunctions_$N.csv"))
-en = DataFrame(CSV.File("./Data/ksenergy_$N.csv"))
+if nucl == "Na"
+    rs = 3.93
+else
+    rs = 4.86
+end
+
+df = DataFrame(CSV.File("./Data/ksfunctions_$(nucl)_$N.csv"))
+en = DataFrame(CSV.File("./Data/ksenergy_$(nucl)_$N.csv"))
 
 len = count(df.iteration.==0)
 ndata = Int(length(df.iteration)/len)-1
 niter = last(df.iteration)
 grid = df.grid[1:len]
-Vext = V_ext.(grid,Rc(N,rs_Na),rho_b(rs_Na))
+Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
 
 Vhs = [df.Vh[i*len+1:(i+1)*len] for i=0:ndata]
 Vkss = [df.Vks[i*len+1:(i+1)*len] for i=0:ndata]
@@ -24,7 +30,7 @@ eigf_1d = [df.eigf_1d[i*len+1:(i+1)*len] for i=0:ndata]
 plot(grid,rhos[1:1:end])
 plot(grid,Vhs[1:1:end], ylims=(0, 0.8))
 plot(grid,Vxcs[1:1:end])
-plot(grid,Vkss[1:1:end], ylims=(-1.8, 0.8))
+plot(grid,Vkss[1:1:end], ylims=(-Inf, 0.8))
 plot!(grid,eigf_2s[1:1:end])
 
 
@@ -39,36 +45,41 @@ last_1p = eigf_1p[end]
 last_1d = eigf_1d[end]
 last_2s = eigf_2s[end]
 
-
 # plots of the potential components
+plot(grid[100:end-100],Vext[100:end-100])
+savefig("./Plots/Vext_$(nucl)_$N.pdf")
 plot(grid[100:end-100],last_Vh[100:end-100])
-savefig("./Plots/Vh_$N.pdf")
+savefig("./Plots/Vh_$(nucl)_$N.pdf")
 plot(grid[100:end-100],last_Vxc[100:end-100])
-savefig("./Plots/Vxc_$N.pdf")
+savefig("./Plots/Vxc_$(nucl)_$N.pdf")
 plot(grid[100:end-100],last_Vks[100:end-100])
-savefig("./Plots/Vks_$N.pdf")
+savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # plot of the radial wavefunctions
 plot(grid[1:end÷2],last_1s[1:end÷2], label="1s")
 plot!(grid[1:end÷2],last_1p[1:end÷2], label="1p")
-plot!(grid[1:end÷2],last_1d[1:end÷2], label="1d")
-plot!(grid[1:end÷2],last_2s[1:end÷2], label="2s")
-savefig("./Plots/eigf_$N.pdf")
+if N==20
+    plot!(grid[1:end÷2],last_1d[1:end÷2], label="1d")
+    plot!(grid[1:end÷2],last_2s[1:end÷2], label="2s")
+end
+savefig("./Plots/eigf_$(nucl)_$N.pdf")
 
 # plot of the radial probabilities
 plot(grid[1:end÷2],last_1s[1:end÷2].^2, label="1s")
 plot!(grid[1:end÷2],last_1p[1:end÷2].^2, label="1p")
-plot!(grid[1:end÷2],last_1d[1:end÷2].^2, label="1d")
-plot!(grid[1:end÷2],last_2s[1:end÷2].^2, label="2s")
-savefig("./Plots/eigf_squared_$N.pdf")
+if N==20
+    plot!(grid[1:end÷2],last_1d[1:end÷2].^2, label="1d")
+    plot!(grid[1:end÷2],last_2s[1:end÷2].^2, label="2s")
+end
+savefig("./Plots/eigf_squared_$(nucl)_$N.pdf")
 
 # plot of the total electron radial density
 plot(grid[100:end-100],last_rho[100:end-100])
-savefig("./Plots/rho_$N.pdf")
+savefig("./Plots/rho_$(nucl)_$N.pdf")
 
 
 
 ## energy values
-plot(0:niter, en8.e1s)
-plot(0:niter, en8.E1)
-plot(0:niter, en8.E2)
+plot(0:niter, en.e1s)
+plot(0:niter, en.E1)
+plot(0:niter, en.E2)
