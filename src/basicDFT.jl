@@ -4,6 +4,8 @@ using LinearAlgebra, Printf, CSV, DataFrames
 export LinearAlgebra, Printf, CSV, DataFrames
 include("numerov.jl")
 export Numerov
+include("kohn_sham.jl")
+export solve_KS
 
 # add missing directories in current folder
 workdir = "./"
