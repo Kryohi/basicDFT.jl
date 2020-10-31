@@ -15,20 +15,21 @@ end
 df = DataFrame(CSV.File("./Data/ksfunctions_$(nucl)_$N.csv"))
 en = DataFrame(CSV.File("./Data/ksenergy_$(nucl)_$N.csv"))
 
-len = count(df.iteration.==0)
-ndata = Int(length(df.iteration)/len)-1
-niter = last(df.iteration)
-grid = df.grid[1:len]
+@show len = count(df.iteration.==0)
+@show ndata = Int(length(df.iteration)/len)-1
+@show niter = last(df.iteration)
+s = 10 # we take a point every s, to have more lightweight pdf files
+grid = df.grid[1:s:len]
 Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
 
-Vhs = [df.Vh[i*len+1:(i+1)*len] for i=0:ndata]
-Vkss = [df.Vks[i*len+1:(i+1)*len] for i=0:ndata]
+Vhs = [df.Vh[i*len+1:s:(i+1)*len] for i=0:ndata]
+Vkss = [df.Vks[i*len+1:s:(i+1)*len] for i=0:ndata]
 Vxcs = [Vkss[i+1] .- Vhs[i+1] .- Vext for i=0:ndata]
-rhos = [df.rho[i*len+1:(i+1)*len] for i=0:ndata]
-eigf_1s = [df.eigf_1s[i*len+1:(i+1)*len] for i=0:ndata]
-eigf_2s = [df.eigf_2s[i*len+1:(i+1)*len] for i=0:ndata]
-eigf_1p = [df.eigf_1p[i*len+1:(i+1)*len] for i=0:ndata]
-eigf_1d = [df.eigf_1d[i*len+1:(i+1)*len] for i=0:ndata]
+rhos = [df.rho[i*len+1:s:(i+1)*len] for i=0:ndata]
+eigf_1s = [df.eigf_1s[i*len+1:s:(i+1)*len] for i=0:ndata]
+eigf_2s = [df.eigf_2s[i*len+1:s:(i+1)*len] for i=0:ndata]
+eigf_1p = [df.eigf_1p[i*len+1:s:(i+1)*len] for i=0:ndata]
+eigf_1d = [df.eigf_1d[i*len+1:s:(i+1)*len] for i=0:ndata]
 
 
 ## plots of the evolution of the functions
@@ -49,6 +50,8 @@ plot(grid,eigf_1s[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_1s_$(nucl)_$N.pdf")
 plot(grid,eigf_1d[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_1d_$(nucl)_$N.pdf")
+plot(grid,eigf_2s[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
+savefig("./Plots/evol_2s_$(nucl)_$N.pdf")
 
 
 
@@ -77,7 +80,7 @@ plot(grid[100:end-100], last_Vks[100:end-100], legend=false)
 savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # numerical instability
-plot(grid[29900:30000],last_Vh[29900:30000])
+#plot(grid[29900:30000],last_Vh[29900:30000])
 
 
 # plot of the radial wavefunctions
@@ -106,5 +109,8 @@ savefig("./Plots/rho_$(nucl)_$N.pdf")
 
 ## energy values
 plot(0:niter, en.e1s)
+plot(0:niter, en.e2s)
+plot(0:niter, en.e1p)
+plot(0:niter, en.e1d)
 plot(0:niter, en.E1)
 plot(0:niter, en.E2)

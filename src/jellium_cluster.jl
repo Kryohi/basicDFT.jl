@@ -2,9 +2,10 @@ using basicDFT, Plots, LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
 
 # TODO
-# check cubic root in local_energy and fix derivative
+# check cubic root in local_energy
 # check numerical instability in the flex of Vh
 # fix energy calculation
+# test propagated bc_end
 # compare results with different initial conditions
 # save partial data to csv
 
@@ -41,6 +42,8 @@ function solve_KS(N, rs, α, grid; max_iter=60, stride=2, verbose=false)
                         E1 = Float64[],
                         E2 = Float64[])
 
+      @printf("\n\nStarting KS algorithm with N = %d, rs = %f, α = %f\n", N, rs, α)
+
       # Start of the self-consistent Kohn-Sham method
       for t = 1:max_iter
 
@@ -69,7 +72,7 @@ function solve_KS(N, rs, α, grid; max_iter=60, stride=2, verbose=false)
             # save the found density function to be used and compared in the next iteration
             rho = data_step.rho
 
-            if (delta < 1e-6)
+            if delta < 1e-6
                   @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
                   break
             end
@@ -154,19 +157,22 @@ grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 
 # Juno.@profiler
-@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=40, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=60, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=40, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=60, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
 N = 8
-@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=40, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_Na, α, grid, max_iter=60, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=40, stride=2, verbose=false)
+@time data, energy = solve_KS(N, rs_K, α, grid, max_iter=60, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
+
+#@code_lowered V_h(grid, last_rho)
+#@time V_h(grid, rho)
