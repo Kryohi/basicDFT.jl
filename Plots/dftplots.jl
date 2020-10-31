@@ -70,13 +70,13 @@ last_1d = eigf_1d[end]
 last_2s = eigf_2s[end]
 
 # plots of the potential components
-plot(grid[1:strd:end], Vext[1:strd:end], legend=false, xlabel="r", ylabel="Vext")
+plot(grid[1:end], Vext[1:end], legend=false, xlabel="r", ylabel="Vext")
 savefig("./Plots/Vext_$(nucl)_$N.pdf")
-plot(grid[1:1:end], last_Vh[1:1:end], legend=false)
+plot(grid[1:end], last_Vh[1:end], legend=false)
 savefig("./Plots/Vh_$(nucl)_$N.pdf")
-plot(grid[1:strd:end], last_Vxc[1:strd:end], legend=false)
+plot(grid[1:end], last_Vxc[1:end], legend=false)
 savefig("./Plots/Vxc_$(nucl)_$N.pdf")
-plot(grid[1:strd:end], last_Vks[1:strd:end], legend=false)
+plot(grid[1:end], last_Vks[1:end], legend=false)
 savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # numerical instability

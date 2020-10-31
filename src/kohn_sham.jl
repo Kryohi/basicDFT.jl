@@ -4,6 +4,7 @@ include("functionals.jl")
 # TODO
 # fix energy calculation
 # compare results with different initial conditions
+# check numerical instability of Vh
 # save partial data to csv
 
 
@@ -59,8 +60,7 @@ function solve_KS(N, α, grid, Vext; max_iter=60, stride=1, verbose=false)
             # mixing of the eigenfunction's extremes with the old ones
             bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
             @show bc_end .=  α.*bc_end_new .+ (1-α).*bc_end
-            #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.]
-            #NOTE here we use the "default" end conditions provided by Numerov instead of reusing the old ones
+            #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] # use default exponential in Numerov
 
             # Check on the convergence by looking at how different is the new density
             @show delta = norm(data_step.rho .- rho)
@@ -105,10 +105,10 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
             rho_new .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
       end
 
-      # mixing of the found density with the old one
+      # mixing of the new density with the old one
       rho_new =  α.*rho_new .+ (1-α).*rho
 
-      # save the computed functions (note that the vanilla, unmixed rho is saved here)
+      # save the computed functions
       data_tmp = DataFrame(iteration = -1 .* ones(Int16,length(grid)),
                         grid = grid,
                         Vh = Vh,
@@ -120,9 +120,13 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
                         eigf_1d = eigf_l2[:,1])
 
       # Consistency check through the energy
-      E1 = E_ks(grid, rho, Vext, Vh)
+      @show T_S(grid,rho)
+      @show E_ext(grid,rho,Vext) 
+      @show E_H(grid,rho,Vh)
+      @show E_XC(grid,rho)
+      @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
-      E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) + E_XC(grid,rho)
+      E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) - E_XC(grid,rho)
       if N>8
             E2 += eigv_l0[2]*2 + eigv_l2[1]*10
       end

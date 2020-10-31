@@ -12,7 +12,7 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
     end
 end
 
-N = 20
+N = 8
 rs_Na = 3.93
 rs_K = 4.86
 rmax = 28
@@ -22,12 +22,12 @@ grid = Vector(h:h:rmax)
 
 
 Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(rs_Na))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=60, stride=2)
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=80, stride=2)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
 Vext = V_ext.(grid, Rc(N,rs_K), rho_b(rs_K))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=60, stride=2)
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=80, stride=2)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 

@@ -52,10 +52,10 @@ end
 
 
 
-# Energy functional
+# Total energy functional
 function E_ks(grid::Vector, rho::Vector, Vext::Vector, Vh::Vector)
 
-    return T_S(grid,rho) + E_ext(grid,rho, Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho)
+    return T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho)
 end
 
 # External energy
@@ -64,31 +64,21 @@ function E_ext(grid::Vector, rho::Vector, V_ext::Vector)
     return simpson_integral(rho .* V_ext, length(rho), h)
 end
 
-# Hartree energy TODO check it bc i'm really not sure why i'm programming at BUC 10 minutes before closure
+# Hartree energy
 function E_H(grid::Vector, rho::Vector)
-
     h = grid[2]-grid[1]
-    E_h = simpson_integral(rho .* V_h(grid, rho), h) / 2
-
-    return E_h  #check this
+    return simpson_integral(rho .* V_h(grid, rho), h) / 2
 end
-# same function but reusing V_H precalculated
+# same function but reusing precalculated V_H
 function E_H(grid::Vector, rho::Vector, Vh::Vector)
-
     h = grid[2]-grid[1]
-    E_h = simpson_integral(rho .* Vh, h) / 2
-
-    return E_h  #check this
+    return simpson_integral(rho .* Vh, h) / 2
 end
-
 
 # Exchange-correlation energy
 function E_XC(grid::Vector, rho::Vector)
-
     h = grid[2]-grid[1]
-    E_xc = simpson_integral(rho .* local_energy.(rho), h)
-
-    return E_xc
+    return simpson_integral(rho .* local_energy.(rho), h)
 end
 
 # Kohn–Sham kinetic energy (NOTE should take the ks orbitals as input?)
