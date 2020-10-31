@@ -9,14 +9,8 @@ include("functionals.jl")
 # compare results with different initial conditions
 # save partial data to csv
 
-Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
-rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
 
-
-function solve_KS(N, rs, α, grid, V_ext; max_iter=60, stride=1, verbose=false)
-
-      # calculate the external potential array over the x-axis
-      Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
+function solve_KS(N, rs, α, grid, Vext; max_iter=60, stride=1, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
