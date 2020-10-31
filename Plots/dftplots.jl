@@ -40,11 +40,11 @@ xlim = floor(Int,grid[end]*2/3)
 
 plot(grid,rhos[1:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_rho_$(nucl)_$N.pdf")
-plot(grid,Vhs[1:strd:end], xlims=(0, xlim), ylims=(0, 0.8), palette = col, legend=false)
+plot(grid,Vhs[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_Vh_$(nucl)_$N.pdf")
 plot(grid,Vxcs[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_Vxc_$(nucl)_$N.pdf")
-plot(grid,Vkss[2:strd:end], xlims=(0, xlim), ylims=(-Inf, 0.0), palette = col, legend=false)
+plot(grid,Vkss[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_Vks_$(nucl)_$N.pdf")
 plot(grid,eigf_1s[2:strd:end], xlims=(0, xlim), palette = col, legend=false)
 savefig("./Plots/evol_1s_$(nucl)_$N.pdf")
@@ -70,13 +70,13 @@ last_1d = eigf_1d[end]
 last_2s = eigf_2s[end]
 
 # plots of the potential components
-plot(grid, Vext, legend=false, xlabel="r", ylabel="Vext")
+plot(grid[1:strd:end], Vext[1:strd:end], legend=false, xlabel="r", ylabel="Vext")
 savefig("./Plots/Vext_$(nucl)_$N.pdf")
-plot(grid[100:end-100], last_Vh[100:end-100], legend=false)
+plot(grid[1:1:end], last_Vh[1:1:end], legend=false)
 savefig("./Plots/Vh_$(nucl)_$N.pdf")
-plot(grid, last_Vxc, legend=false)
+plot(grid[1:strd:end], last_Vxc[1:strd:end], legend=false)
 savefig("./Plots/Vxc_$(nucl)_$N.pdf")
-plot(grid[100:end-100], last_Vks[100:end-100], legend=false)
+plot(grid[1:strd:end], last_Vks[1:strd:end], legend=false)
 savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # numerical instability

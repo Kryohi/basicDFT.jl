@@ -20,26 +20,19 @@ h = 2.5e-4
 grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 
-# calculate the external potential array over the x-axis
-Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
 
-# Juno.@profiler
-@time data, energy = solve_KS(N, rs_Na, α, grid, Vext, max_iter=60, stride=2)
+Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(rs_Na))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=60, stride=2)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-@time data, energy = solve_KS(N, rs_K, α, grid, Vext, max_iter=60, stride=2)
+Vext = V_ext.(grid, Rc(N,rs_K), rho_b(rs_K))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=60, stride=2)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
-N = 8
-@time data, energy = solve_KS(N, rs_Na, α, grid, Vext, max_iter=60, stride=2)
-CSV.write("./Data/ksfunctions_Na_$N.csv", data)
-CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-@time data, energy = solve_KS(N, rs_K, α, grid, Vext, max_iter=60, stride=2)
-CSV.write("./Data/ksfunctions_K_$N.csv", data)
-CSV.write("./Data/ksenergy_K_$N.csv", energy)
+# Juno.@profiler solve_KS(20, rs_K, α, grid, Vext, max_iter=10, stride=2)
 
 #@code_native V_h(grid, last_rho)
 #Juno.@profiler Vhtest(grid, rho)

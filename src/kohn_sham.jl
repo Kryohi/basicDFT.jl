@@ -2,15 +2,12 @@ using LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
 
 # TODO
-# check cubic root in local_energy
-# check numerical instability in the flex of Vh
 # fix energy calculation
-# test propagated bc_end
 # compare results with different initial conditions
 # save partial data to csv
 
 
-function solve_KS(N, rs, α, grid, Vext; max_iter=60, stride=1, verbose=false)
+function solve_KS(N, α, grid, Vext; max_iter=60, stride=1, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
@@ -40,7 +37,7 @@ function solve_KS(N, rs, α, grid, Vext; max_iter=60, stride=1, verbose=false)
                         E1 = Float64[],
                         E2 = Float64[])
 
-      @printf("\n\nStarting KS algorithm with N = %d, rs = %0.3f, α = %0.2f\n", N, rs, α)
+      @printf("\n\nStarting KS algorithm with N = %d, α = %0.2f\n", N, α)
 
       # Start of the self-consistent Kohn-Sham method
       for t = 1:max_iter
@@ -61,7 +58,8 @@ function solve_KS(N, rs, α, grid, Vext; max_iter=60, stride=1, verbose=false)
 
             # mixing of the eigenfunction's extremes with the old ones
             bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
-            bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.]
+            @show bc_end .=  α.*bc_end_new .+ (1-α).*bc_end
+            #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.]
             #NOTE here we use the "default" end conditions provided by Numerov instead of reusing the old ones
 
             # Check on the convergence by looking at how different is the new density
@@ -71,7 +69,7 @@ function solve_KS(N, rs, α, grid, Vext; max_iter=60, stride=1, verbose=false)
             rho = data_step.rho
 
             if delta < 1e-6
-                  @printf("\nConvergence reached after %d steps with δ = %f\n", t, delta)
+                  @printf("\nConvergence reached after %d steps with δ = %0.9f\n", t, delta)
                   break
             end
             if t == max_iter
