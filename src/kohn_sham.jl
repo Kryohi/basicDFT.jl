@@ -1,4 +1,4 @@
-using basicDFT, LinearAlgebra, Printf, DataFrames, CSV
+using LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
 
 # TODO

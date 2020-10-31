@@ -1,10 +1,8 @@
 include("common_math.jl")
 
 # TODO
-# check everything
-# more general handling of V_ext and local_energy
-# always use simpson_integral()?
-# 0.78 or 7.8?
+# check energies
+# more general handling of local_energy and V_xc
 
 
 # Local energy used in the LDA
@@ -22,12 +20,13 @@ end
 
 
 # Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy
+# could be made faster with a better integration method
 @inbounds function V_h(grid::Vector{Float64}, rho::Vector{Float64})
 
     Vh = zeros(Float64, length(rho))
     h = grid[2]-grid[1]
 
-    Vh[end] = 4pi*simpson_integral(grid.^2 .* rho, h)/grid[1]
+    Vh[end] = 4pi*simpson_integral(grid.^2 .* rho, h)/grid[end]
     Vh[1] = 4pi*simpson_integral(rho.*grid, h)
 
     # preevaluation of the functions to integrate
@@ -36,7 +35,7 @@ end
     integrand1 = integrand2 .* grid
 
     # this is the most expensive function to compute, so we use multithreading
-    # (which unexpectedly seems to work without much user input, with a 40% faster program using 2 cores)
+    # (unexpectedly works without much user input, with a 7x faster evaluation using 12 threads)
     Threads.@threads for x = 2:length(grid)-1
         for i = 2:2:x-1
             Vh[x] += (integrand1[i-1] + 4.0*integrand1[i] + integrand1[i+1]) * grid_1[x]
