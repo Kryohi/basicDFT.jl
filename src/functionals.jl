@@ -8,7 +8,7 @@ include("common_math.jl")
 
 
 # Local energy used in the LDA
-@inline function local_energy(rho::Float64)
+function local_energy(rho::Float64)
     return -0.75*cbrt(3*rho/pi) - 0.44/(7.8 + cbrt(4/(3*pi*rho)))
 end
 
@@ -30,6 +30,8 @@ end
     Vh[end] = 4pi*simpson_integral(grid.^2 .* rho, h)/grid[1]
     Vh[1] = 4pi*simpson_integral(rho.*grid, h)
 
+    # preevaluation of the functions to integrate
+    grid_1 = 1 ./ grid
     integrand2 = rho .* grid
     integrand1 = integrand2 .* grid
 
@@ -37,45 +39,17 @@ end
     # (which unexpectedly seems to work without much user input, with a 40% faster program using 2 cores)
     Threads.@threads for x = 2:length(grid)-1
         for i = 2:2:x-1
-            Vh[x] += h * (integrand1[i-1] + 4.0*integrand1[i] + integrand1[i+1]) / (3.0*grid[x])
+            Vh[x] += (integrand1[i-1] + 4.0*integrand1[i] + integrand1[i+1]) * grid_1[x]
         end
         for i = x:2:length(rho)-1
-            Vh[x] += h * (integrand2[i-1] + 4.0* integrand2[i] + integrand2[i+1]) / 3.
+            Vh[x] += integrand2[i-1] + 4.0*integrand2[i] + integrand2[i+1]
         end
-        Vh[x] = 4pi*Vh[x]  # from spherical integration
+        Vh[x] = h * Vh[x] / 3.0 # we might have higher rounding errors, but we don't care
+        Vh[x] = 4pi * Vh[x]  # from spherical integration
     end
 
     return Vh
 end
-
-# # Hartree potential in the Kohn-Sham equation, also used to compute the Hartree energy - alternative version, may be faster
-# @inbounds function V_h(grid::Vector, rho::Vector)
-#     Vh = zeros(Float64, length(rho))
-#     Vh1 = zeros(Float64, length(rho))
-#     Vh2 = zeros(Float64, length(rho))
-#     h = grid[2]-grid[1]
-#
-#     for i = 2:2:length(grid)-1
-#         Vh1[i] = h * (rho[i-1]*(h*(i-1)) + 4*rho[i]*(h*i) + rho[i+1]*(h*(i+1))) / 3
-#     end
-#     for i = 2:2:length(grid)-1
-#         Vh2[i] = h * (rho[i-1]*(h*(i-1))*(h*(i-1)) + 4*rho[i]*(h*i)*(h*i) + rho[i+1]*(h*(i+1))*(h*(i+1))) / 3
-#     end
-#     Vh1[1] = h*rho[1]*grid[1]
-#     Vh1[end] = Vh1[end] + h*rho[end]*grid[end]
-#     Vh2[1] = h*rho[1]*grid[1]^2
-#     Vh2[end] = Vh1[end] + h*rho[end]*grid[end]^2
-#
-#     Vh1 .= (4*pi) .* Vh1
-#     Vh2 .= (4*pi) .* Vh2
-#
-#     Vh[1] = sum(Vh2)/grid[1]
-#     for i = 2:length(grid)
-#         Vh[i] = sum(Vh1[1:i-1]) + sum(Vh2[i:length(grid)])/grid[i]
-#     end
-#     #println("Vh[1] = ", Vh[1])
-#     return Vh
-# end
 
 
 

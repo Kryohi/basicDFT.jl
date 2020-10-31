@@ -42,7 +42,7 @@ function solve_KS(N, rs, α, grid; max_iter=60, stride=2, verbose=false)
                         E1 = Float64[],
                         E2 = Float64[])
 
-      @printf("\n\nStarting KS algorithm with N = %d, rs = %f, α = %f\n", N, rs, α)
+      @printf("\n\nStarting KS algorithm with N = %d, rs = %0.3f, α = %0.2f\n", N, rs, α)
 
       # Start of the self-consistent Kohn-Sham method
       for t = 1:max_iter
@@ -174,5 +174,6 @@ CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
-#@code_lowered V_h(grid, last_rho)
-#@time V_h(grid, rho)
+#@code_native V_h(grid, last_rho)
+#Juno.@profiler Vhtest(grid, rho)
+#@btime Vhtest(grid, rho)
