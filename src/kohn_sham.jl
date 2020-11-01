@@ -1,5 +1,6 @@
 using LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
+include("numerov.jl")
 
 # TODO
 # fix energy calculation
@@ -121,7 +122,7 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       # Consistency check through the energy
       @show T_S(grid,rho)
-      @show E_ext(grid,rho,Vext) 
+      @show E_ext(grid,rho,Vext)
       @show E_H(grid,rho,Vh)
       @show E_XC(grid,rho)
       @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho)

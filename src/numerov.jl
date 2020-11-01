@@ -25,8 +25,6 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
     # centrifugal term, dependent on l but not on E
     centrifugal = zeros(Float64, xmax)
-    # kinetic term
-    k2 = zeros(Float64, xmax)
     # calculated wavefunction, respectively before xc and after xc (f stands for forward)
     yf = zeros(Float64, xmax)
     yb = zeros(Float64, xmax)
@@ -78,7 +76,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 
         # we run forward and backward Numerov, store the results in yf and yb
         # and compute the difference in the derivative of the logarithms at xc
-        delta = findDelta!(E, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb)
+        delta = findDelta!(E, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb)
 
         # We are searching for the zeros of delta, with increasing values of E, so
         # if there is a change in sign, start the finer search of the 0 of delta(E)
@@ -87,7 +85,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
             verbose && @printf("\n[Numerov] Found a point of inversion at %0.9f - %0.9f\n", E-Estep, E)
 
             eigv[nfound], _ = secant(e ->
-                findDelta!(e, V, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb),
+                findDelta!(e, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb),
                 E-Estep, E, tol, 10^4)
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
@@ -123,7 +121,7 @@ function Numerov(l, nmax, grid, V::Array; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Este
 end
 
 
-function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb)
+function findDelta!(E, V::Vector, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, verbose, yf, yb)
 
     # Boundary conditions at rmin
     if bc_0_exp
@@ -144,7 +142,7 @@ function findDelta!(E, V::Vector, centrifugal, k2, h, xmin, xmax, bc_0_exp, bc_e
     verbose && println("xc = ", xc)
 
     # calculation of the total potential term
-    k2 .= (E .- V) ./ h2m .- centrifugal
+    k2 = (E .- V) ./ h2m .- centrifugal
 
     numerov_forward!(h, xc, xmin, k2, yf)
     numerov_backward!(h, xc, xmax, k2, yb)

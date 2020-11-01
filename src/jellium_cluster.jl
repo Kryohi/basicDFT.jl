@@ -16,7 +16,7 @@ N = 8
 rs_Na = 3.93
 rs_K = 4.86
 rmax = 28
-h = 2.5e-4
+h = 5e-4
 grid = Vector(h:h:rmax)
 α = 0.2 # mixing coefficient of the densities
 
@@ -32,7 +32,7 @@ CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
 
-# Juno.@profiler solve_KS(20, rs_K, α, grid, Vext, max_iter=10, stride=2)
+Juno.@profiler solve_KS(20, α, grid, Vext, max_iter=10, stride=2)
 
 #@code_native V_h(grid, last_rho)
 #Juno.@profiler Vhtest(grid, rho)
