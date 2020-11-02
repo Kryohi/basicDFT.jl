@@ -50,7 +50,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
             # save partial results to data
             replace!(data_step.iteration, -1 => Int16(t))
-            t%stride==1 && append!(data,data_step)
+            (t%stride==1) || stride == 1) && append!(data,data_step)
             push!(energies, energy_step)
 
             # next boundary conditions will be based on the current eigenfunctions
@@ -69,7 +69,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
             # save the found density function to be used and compared in the next iteration
             rho = data_step.rho
 
-            if delta < 1e-6
+            if delta < 1e-5
                   @printf("\nConvergence reached after %d steps with δ = %0.9f\n", t, delta)
                   break
             end
