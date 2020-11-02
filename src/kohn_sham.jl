@@ -9,7 +9,7 @@ include("numerov.jl")
 # save partial data to csv
 
 
-function solve_KS(N, α, grid, Vext; max_iter=60, stride=1, verbose=false)
+function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12

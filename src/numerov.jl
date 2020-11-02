@@ -160,7 +160,7 @@ end
 
 # propagate the numerov solution up to xc+3
 # xmin is used in order to not overwrite yf at the boundary provided to Numerov
-@inbounds function numerov_forward!(h::Float64, xc::Int64, xmin::Int64, k2, yf)
+@inbounds function numerov_forward!(h::Float64, xc::Int, xmin::Int, k2::Vector, yf::Vector)
     hh = h*h
     c0 = hh*k2[xmin]/12
     c_1 = hh*k2[xmin-1]/12
@@ -174,7 +174,7 @@ end
     end
 end
 
-@inbounds function numerov_backward!(h::Float64, xc::Int64, xmax::Int64, k2, yb)
+@inbounds function numerov_backward!(h::Float64, xc::Int, xmax::Int, k2::Vector, yb::Vector)
     hh = h*h
     c0 = hh*k2[xmax-2]/12
     c1 = hh*k2[xmax-1]/12
