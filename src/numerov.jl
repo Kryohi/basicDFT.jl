@@ -7,7 +7,7 @@ const h2m = 0.5
 # Performs the whole algorithm and finds the spectrum up to the n-th level
 # Returns the found eingenvalues and eigenvectors
 
-function Numerov(l::Int, nmax::Int, grid::Vector, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Estep=-1., tol=5e-6, maxiter=10^5, verbose=false)
+function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.,-1.], Estep=-1., tol=5e-6, maxiter=10^5, verbose=false)
 
     if length(grid) != length(V)
         throw(ArgumentError(grid, "length of grid and V must match"))

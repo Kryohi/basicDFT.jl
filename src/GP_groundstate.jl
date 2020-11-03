@@ -6,8 +6,8 @@ include("numerov.jl")
 function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, stride=1, verbose=false)
 
       # set the initial trial wavefunction
-      cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-15
-      phi = cos_single.(grid, 8, 3.)
+      cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
+      phi = cos_single.(grid, 8, 5.)
       phi = phi ./ norm(phi)
 
       # initial boundary condition for the wavefunction
@@ -24,6 +24,8 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
                         E1 = Float64[],
                         E2 = Float64[])
 
+      Vint(grid,phi) = 4π*Na*(phi^2)#/((grid)^2))# .+ 1e-11))
+
       @printf("\n\nStarting KS algorithm with Na = %0.4f, α = %0.2f\n", Na, α)
 
       # Start of the self-consistent iteration
@@ -31,8 +33,7 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
 
             @printf("\nITERATION %d, Na = %0.4f\n", t, Na)
 
-            Vint = 4π*Na.*(phi.^2 ./ ((grid).^2))# .+ 1e-11))
-            Vgp = Vext .+ Vint
+            Vgp = Vext .+ Vint.(grid,phi)
 
             # calculation of the eigenfunctions with the effective mean-field potential
             eigv_new, phi_new = Numerov(0, 1, grid, Vgp, bc_0=bc_0[1:2], bc_end=bc_end[1:2], Estep=Estep, verbose=verbose)
@@ -43,15 +44,14 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
             # next boundary conditions will be based on the current phi, mixed with the old
             # NOTE conditions at the end can be either these or a simple decaying exponential, they should both work
             bc_0 .=  α.*phi_new[1:2] .+ (1-α).*bc_0
-            @show bc_end .=  α.*phi_new[end-1:end] .+ (1-α).*bc_end
+            bc_end .=  α.*phi_new[end-1:end] .+ (1-α).*bc_end
             #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] # use default exponential in Numerov
 
-            # Consistency check through the energy
+            # Consistency check through the energy TODO
 
-            E1 = eigv_new[1]
-            @show T_S(grid,phi)
-            @show E_ext(grid,phi,Vext)
-            @show E2 = T_S(grid,phi)
+            E1 = eigv_new[1] #* cose
+            #@show T_S(grid,phi)
+            @show E2 = T_S(grid,phi) # + cose
 
             verbose && @printf("E_eig = %f\tE_func = %f\tdiff = %f\n", E1, E2, E2-E1)
 
@@ -62,11 +62,11 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
             phi = phi_new
 
             # save partial results to data
-            if (t%stride == 1) || stride == 1
+            if (t%stride == 1) || (stride == 1)
                   verbose && println("Saving calculations to memory...\n")
                   data_tmp = DataFrame(iteration = t .* ones(Int16,length(grid)),
                               grid = grid,
-                              Vint = 4π*Na.*(phi.^2 ./ grid.^2),
+                              Vint = Vint.(grid,phi),
                               phi = phi)
 
                   append!(data,data_tmp)
@@ -87,13 +87,13 @@ end
 
 
 
-rmax = 12
-h = 2e-4
+rmax = 20
+h = 2.5e-4
 grid = Vector(h:h:rmax)
 α = 0.1 # mixing coefficient of the densities
-Vext = 0.5 .* (grid).^2
+Vext = 0.5 .* (grid .- 10).^2
 
-Threads.@threads for Na ∈ [0.01; 0.1; 1; 10; 100]
+Threads.@threads for Na ∈ [0.01; 0.1; 1; 10; 100; 1000; 2000; 5000]
       @time data, energy = solve_GP(Na, α, grid, Vext; max_iter=280, stride=1, verbose=false)
       CSV.write("./Data/gpfunctions_$(α)_$Na.csv", data)
       CSV.write("./Data/gpenergy_$(α)_$Na.csv", energy)
