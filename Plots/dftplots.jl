@@ -3,8 +3,8 @@ using DataFrames, CSV, Plots, ColorSchemes
 Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
 
-nucl = "K"
-N = 8
+nucl = "Na"
+N = 20
 
 if nucl == "Na"
     rs = 3.93
@@ -34,9 +34,9 @@ eigf_1d = [df.eigf_1d[i*len+1:s:(i+1)*len] for i=0:ndata]
 
 ## plots of the evolution of the functions
 N_plots = 10
-strd = Int(floor(ndata/N_plots))
+strd = 1#Int(floor(ndata/N_plots))
 col = palette([:orange, :purple], length(rhos[1:strd:end]))
-xlim = floor(Int,grid[end]*2/3)
+xlim = floor(Int,grid[end]*1)
 
 plot(grid,rhos[1:strd:end], xlims=(0,xlim), palette = col, legend=false)
 savefig("./Plots/evol_rho_$(nucl)_$N.pdf")
@@ -48,6 +48,8 @@ plot(grid,Vkss[2:strd:end], xlims=(0,xlim), palette = col, legend=false)
 savefig("./Plots/evol_Vks_$(nucl)_$N.pdf")
 plot(grid,eigf_1s[2:strd:end], xlims=(0,xlim), palette = col, legend=false)
 savefig("./Plots/evol_1s_$(nucl)_$N.pdf")
+plot(grid,eigf_1p[1:strd:end], xlims=(0,xlim), palette = col, legend=false)
+savefig("./Plots/evol_1p_$(nucl)_$N.pdf")
 plot(grid,eigf_1d[2:strd:end], xlims=(0,xlim), palette = col, legend=false)
 savefig("./Plots/evol_1d_$(nucl)_$N.pdf")
 plot(grid,eigf_2s[2:strd:end], xlims=(0,xlim), palette = col, legend=false)
@@ -76,7 +78,7 @@ plot(grid[1:end], last_Vh[1:end], legend=false)
 savefig("./Plots/Vh_$(nucl)_$N.pdf")
 plot(grid[1:end], last_Vxc[1:end], legend=false)
 savefig("./Plots/Vxc_$(nucl)_$N.pdf")
-plot(grid[1:end], last_Vks[1:end], legend=false)
+plot(grid[1:end-500], last_Vks[1:end-500], legend=false)
 savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # numerical instability
@@ -108,9 +110,22 @@ savefig("./Plots/rho_$(nucl)_$N.pdf")
 
 
 ## energy values
-plot(0:niter, en.e1s)
-plot(0:niter, en.e2s)
-plot(0:niter, en.e1p)
-plot(0:niter, en.e1d)
-plot(0:niter, en.E1)
-plot(0:niter, en.E2)
+plot(0:niter-1, en.e1s)
+plot(0:niter-1, en.e2s)
+plot(0:niter-1, en.e1p)
+plot(0:niter-1, en.e1d)
+plot(0:niter-1, en.E1)
+plot(0:niter-1, en.E2)
+
+
+df = DataFrame(CSV.File("./Data/Vh.csv"))
+Vhq = df.Vh
+Vksq = df.Vks
+
+plot(grid, Vhq)
+plot(grid[4000:end-910], Vksq[4000:end-910])
+
+df = DataFrame(CSV.File("./Data/rho.csv"))
+plot(grid, df.rho)
+
+plot(grid, df.eig1s)

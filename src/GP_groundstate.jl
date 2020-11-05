@@ -8,7 +8,7 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
       # set the initial trial wavefunction
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
       phi = cos_single.(grid, 8, 5.)
-      phi = phi ./ norm(phi)
+      phi = phi ./ sqrt(simpson_integral(phi.^2, h))
 
       # initial boundary condition for the wavefunction
       bc_0 = phi[1:2]
@@ -24,9 +24,9 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
                         E1 = Float64[],
                         E2 = Float64[])
 
-      Vint(grid,phi) = 4π*Na*(phi^2)#/((grid)^2))# .+ 1e-11))
+      Vint(x,phi) = 4π*Na*phi^2#/x^2# .+ 1e-11))
 
-      @printf("\n\nStarting KS algorithm with Na = %0.4f, α = %0.2f\n", Na, α)
+      @printf("\n\nStarting GP solution with Na = %0.4f, α = %0.2f\n", Na, α)
 
       # Start of the self-consistent iteration
       for t = 1:max_iter
@@ -40,6 +40,8 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
 
             # mixing of the new density with the old one
             phi_new =  α.*phi_new[:,1] .+ (1-α).*phi
+            phi_new = phi_new ./ sqrt(simpson_integral(phi_new.^2, h))
+            @show simpson_integral(phi_new.^2, h)
 
             # next boundary conditions will be based on the current phi, mixed with the old
             # NOTE conditions at the end can be either these or a simple decaying exponential, they should both work
@@ -56,7 +58,7 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
             verbose && @printf("E_eig = %f\tE_func = %f\tdiff = %f\n", E1, E2, E2-E1)
 
             # Check on the convergence by looking at how different is the new density
-            @show delta = norm(phi_new .- phi)
+            @show delta = sqrt(simpson_integral((phi_new .- phi).^2, h))
 
             # save the found density function to be used and compared in the next iteration
             phi = phi_new
@@ -73,7 +75,7 @@ function solve_GP(Na, α, grid::Vector, Vext::Vector; Estep=2e-3, max_iter=500, 
             end
             push!(energies, [eigv_new; E1; E2])
 
-            if delta < 1e-5
+            if delta < 1e-6
                   @printf("\nConvergence reached after %d steps with δ = %0.9f\n", t, delta)
                   break
             end
@@ -91,10 +93,17 @@ rmax = 20
 h = 2.5e-4
 grid = Vector(h:h:rmax)
 α = 0.1 # mixing coefficient of the densities
-Vext = 0.5 .* (grid .- 10).^2
+Vext = 0.5 .* (grid .- 0).^2
 
-Threads.@threads for Na ∈ [0.01; 0.1; 1; 10; 100; 1000; 2000; 5000]
-      @time data, energy = solve_GP(Na, α, grid, Vext; max_iter=280, stride=1, verbose=false)
+Threads.@threads for Na ∈ [0.01; 0.1; 1; 10; 100]
+      @time data, energy = solve_GP(Na, α, grid, Vext; max_iter=280, stride=2, verbose=false)
+      CSV.write("./Data/gpfunctions_$(α)_$Na.csv", data)
+      CSV.write("./Data/gpenergy_$(α)_$Na.csv", energy)
+end
+
+Na = 10.
+for α ∈ [0.05; 0.01; 0.05; 0.1]
+      @time data, energy = solve_GP(Na, α, grid, Vext; max_iter=280, stride=2, verbose=false)
       CSV.write("./Data/gpfunctions_$(α)_$Na.csv", data)
       CSV.write("./Data/gpenergy_$(α)_$Na.csv", energy)
 end

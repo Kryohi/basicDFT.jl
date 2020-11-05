@@ -27,3 +27,5 @@ const tol = 1e-5
 
 
 end
+
+#plot(grid, eigf[:,1:3].^2)

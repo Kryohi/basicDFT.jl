@@ -49,6 +49,35 @@ end
 
     return Vh
 end
+@inbounds function V_h2(grid::Vector{Float64}, rho::Vector{Float64})
+
+    Vh = zeros(Float64, length(rho))
+    h = grid[2]-grid[1]
+
+    Vh[end] = 4pi*simpson_integral(rho.*grid, h)
+    Vh[1] = 4pi*simpson_integral(grid.^2 .* rho, h)/grid[1]
+
+    # preevaluation of the functions to integrate
+    grid_1 = 1 ./ grid
+    integrand2 = rho .* grid
+    integrand1 = integrand2 .* grid
+
+    # this is the most expensive function to compute, so we use multithreading
+    # (unexpectedly works without much user input, with a 7x faster evaluation using 12 threads)
+    Threads.@threads for x = 2:length(grid)-1
+        for i = 2:2:x-1
+            Vh[x] += integrand2[i-1] + 4.0*integrand2[i] + integrand2[i+1]
+        end
+        for i = x:2:length(rho)-1
+            Vh[x] += (integrand1[i-1] + 4.0*integrand1[i] + integrand1[i+1]) * grid_1[x]
+        end
+        Vh[x] = h * Vh[x] / 3.0 # we might have higher rounding errors, but we don't care
+        Vh[x] = 4pi * Vh[x]  # from spherical integration
+    end
+
+    return Vh
+end
+
 
 
 

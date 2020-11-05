@@ -39,8 +39,8 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
     end
 
     # boundary conditions, if provided (otherwise exponential decay will be used)
-    bc_0_exp = (bc_0[1] == -1.)
-    bc_end_exp = (bc_end[1] == -1.)
+    bc_0_exp = (bc_0[1] ≈ -1.)
+    bc_end_exp = (bc_end[1] ≈ -1.)
     if !bc_0_exp
         yf[1] = bc_0[1]
         yf[2] = bc_0[2]
@@ -68,11 +68,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
     while (nfound <= nmax)
 
         # we search for the point of intersection of V with the current E
-        _, xc = findmin(abs.(reverse(E .- V)))
-        xc = xmax - xc
-        #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
-        #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
-        ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside the domain")))
+        xc = findEnergyIntersection(E,V)
 
         # we run forward and backward Numerov, store the results in yf and yb
         # and compute the difference in the derivative of the logarithms at xc
@@ -90,8 +86,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
 
-            _, xc = findmin(abs.(reverse(eigv[nfound] .- V)))
-            xc = xmax - xc
+            xc = findEnergyIntersection(E,V)
 
             # put together yf and yb to form the eigenfunction
             for x = 1:xc
@@ -102,7 +97,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             end
 
             # normalize the eigenfunction
-            norm2 = norm(eigf[:,nfound])
+            norm2 = sqrt(simpson_integral(eigf[:,nfound].^2, h))
             eigf[:,nfound] = eigf[:,nfound] ./ norm2
 
             # update the number of solutions found
@@ -135,10 +130,7 @@ function findDelta!(E, V::Vector, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_e
     end
 
     # we search for the last point of intersection of V with the current E
-    _, xc = findmin(abs.(reverse(E .- V)))
-    xc = xmax - xc
-    #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
-    ((xc>length(V)-3)||(xc<2)) && (throw(error("xc outside of the domain")))
+    xc = findEnergyIntersection(E,V)
     verbose && println("xc = ", xc)
 
     # calculation of the total potential term
@@ -189,6 +181,24 @@ end
     end
 end
 
+function findEnergyIntersection(E::Float64, V::Vector)
+    _, xc = findmin(abs.(reverse(E .- V)))
+    xc = length(V) - xc
+    #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
+    #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
+    #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
+    if xc > length(V)*9÷10
+        _, xc = findmin(abs.(E .- V))
+        @warn "E-V intersection near the end of the domain, new one is at $xc"
+    end
+
+    if (xc>length(V)-20) || (xc<20)
+        @warn "E-V intersection outside of the domain, E = $E, choosing xc in the middle of the domain.\nConsider checking the potential V for errors."
+        xc = length(V)÷2
+    end
+
+    return xc
+end
 
 # TODO:
 # understand if it is ever useful to have longer than 2 boundary conditions, simplify code
