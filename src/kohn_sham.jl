@@ -1,5 +1,6 @@
 using LinearAlgebra, Printf, DataFrames, CSV
 include("functionals.jl")
+include("numerov.jl")
 
 # TODO
 # fix energy calculation
@@ -8,7 +9,7 @@ include("functionals.jl")
 # save partial data to csv
 
 
-function solve_KS(N, α, grid, Vext; max_iter=60, stride=1, verbose=false)
+function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
@@ -49,7 +50,7 @@ function solve_KS(N, α, grid, Vext; max_iter=60, stride=1, verbose=false)
 
             # save partial results to data
             replace!(data_step.iteration, -1 => Int16(t))
-            t%stride==1 && append!(data,data_step)
+            (t%stride==1) || stride == 1) && append!(data,data_step)
             push!(energies, energy_step)
 
             # next boundary conditions will be based on the current eigenfunctions
@@ -68,7 +69,7 @@ function solve_KS(N, α, grid, Vext; max_iter=60, stride=1, verbose=false)
             # save the found density function to be used and compared in the next iteration
             rho = data_step.rho
 
-            if delta < 1e-6
+            if delta < 1e-5
                   @printf("\nConvergence reached after %d steps with δ = %0.9f\n", t, delta)
                   break
             end
@@ -121,7 +122,7 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       # Consistency check through the energy
       @show T_S(grid,rho)
-      @show E_ext(grid,rho,Vext) 
+      @show E_ext(grid,rho,Vext)
       @show E_H(grid,rho,Vh)
       @show E_XC(grid,rho)
       @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho)

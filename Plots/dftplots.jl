@@ -4,7 +4,7 @@ Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
 
 nucl = "K"
-N = 20
+N = 8
 
 if nucl == "Na"
     rs = 3.93
@@ -33,7 +33,7 @@ eigf_1d = [df.eigf_1d[i*len+1:s:(i+1)*len] for i=0:ndata]
 
 
 ## plots of the evolution of the functions
-N_plots = 8
+N_plots = 10
 strd = Int(floor(ndata/N_plots))
 col = palette([:orange, :purple], length(rhos[1:strd:end]))
 xlim = floor(Int,grid[end]*2/3)
