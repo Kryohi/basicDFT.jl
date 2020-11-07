@@ -1,7 +1,7 @@
 using DataFrames, CSV, Plots, ColorSchemes
 
 Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
-rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
+rho_b(N,rs) = 3*N/(4π*rs^3) # density of charge inside the nucleus
 
 nucl = "Na"
 N = 20
@@ -20,7 +20,7 @@ en = DataFrame(CSV.File("./Data/ksenergy_$(nucl)_$N.csv"))
 @show niter = last(df.iteration)
 s = 10 # we take a point every s, to have more lightweight pdf files
 grid = df.grid[1:s:len]
-Vext = V_ext.(grid, Rc(N,rs), rho_b(rs))
+Vext = V_ext.(grid, Rc(N,rs), rho_b(N,rs))
 
 Vhs = [df.Vh[i*len+1:s:(i+1)*len] for i=0:ndata]
 Vkss = [df.Vks[i*len+1:s:(i+1)*len] for i=0:ndata]
@@ -123,9 +123,51 @@ Vhq = df.Vh
 Vksq = df.Vks
 
 plot(grid, Vhq)
-plot(grid[4000:end-910], Vksq[4000:end-910])
+plot(grid[1000:end-910], Vksq[1000:end-910])
 
 df = DataFrame(CSV.File("./Data/rho.csv"))
 plot(grid, df.rho)
-
 plot(grid, df.eig1s)
+
+
+# initial conditions
+rmax = 32
+h = 1e-4
+N = 20
+grid = Vector(h:h:rmax)
+cos_single(x,w,c) = cos((x-c)*π/w)^4 * (abs((x-c)*π/w) < π/2) + 1e-4 + (1e-4*(x≥c+w/2)*exp(-x+c-w/2) - 1e-4) + 1e-18
+smoothed_theta(x,x1,x2,w) =  (x>x1 && x<x2) + (x≥x2)*exp(-(x-x2)/w) + (x≤x1)*exp((x-x1)/w)
+rho = cos_single.(grid, 100, 20)
+#rho = 8 ./(20 .+ (grid .- 20).^4)
+#rho = smoothed_theta.(grid,0,20,1)
+rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
+Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
+Vh = 1 .* V_h(grid, rho) ./100
+Vxc = V_xc(rho.*grid.^2)
+Vks = Vext .+ Vh .+ Vxc
+bc_0 = [rho[1:2]./N; rho[1:2]./N; rho[1:2]./N].^(0.5)
+bc_end = [exp(-grid[end]); exp(-grid[end-1]); exp(-grid[end]); exp(-grid[end-1]); exp(-grid[end]); exp(-grid[end-1])]
+# calculation of the eigenfunctions with the effective mean-field potential
+eigv_l0, eigf_l0 = Numerov(0, 2, grid, Vks, bc_0=bc_0[1:2], bc_end=bc_end[1:2],
+   Estep=1e-2, maxiter=10^4, verbose=false)
+eigv_l1, eigf_l1 = Numerov(1, 1, grid, Vks, bc_0=bc_0[3:4], bc_end=bc_end[3:4],
+   Estep=1e-2, maxiter=10^4, verbose=false)
+eigv_l2, eigf_l2 = Numerov(2, 1, grid, Vks, bc_0=bc_0[5:6], bc_end=bc_end[5:6],
+   Estep=1e-2, maxiter=10^4, verbose=true)
+rho = 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2
+if N>8
+    rho .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
+end
+
+plot(grid, Vxc)
+plot(grid, Vext)
+plot(grid, Vh)
+plot(grid, Vks)
+plot(grid, rho)
+
+plot(grid[1:end÷2], eigf_l0[1:end÷2,1], label="1s")
+plot!(grid[1:end÷2], eigf_l1[1:end÷2,1], label="1p")
+if N==20
+    plot!(grid[1:end÷2], eigf_l2[1:end÷2,1], label="1d")
+    plot!(grid[1:end÷2], eigf_l0[1:end÷2,2], label="2s")
+end

@@ -5,11 +5,15 @@ const tol = 1e-5
 
 @testset "basicDFT.jl" begin
 
+    #integration test
+    h = 1e-3
+    x = 0:h:100-h
+    @test abs(simpson_integral(exp.(-x.^2), h) - √(π)/2) < 1e-14
+
     # 1D harmonic oscillator eigenvalue test on Numerov.jl
     nmax = 7
     h = 5e-4    # increase this to speed up the tests, but tol will also have to be increased
     grid = h:h:10
-
     V = map(x->0.5*(x-5)^2, grid)
     eigv, _ = Numerov(0, nmax, grid, V, Estep=5e-2)
     trueeigv = 0.5:1:6.5

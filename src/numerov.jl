@@ -56,7 +56,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
 
     (Estep == -1.0) && (Estep = abs(Vmin-V[Vmin_idx+1])*100)
     # starting (inferior) energy for the Numerov algorithm
-    E = Vmin + Estep + 1e-9
+    E = Vmin + Estep + 1e-12
     verbose && @printf("Starting at E = %f", E)
     # number of eigenvalues found
     nfound = 1
@@ -182,15 +182,16 @@ end
 end
 
 function findEnergyIntersection(E::Float64, V::Vector)
-    _, xc = findmin(abs.(reverse(E .- V)))
-    xc = length(V) - xc
-    #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
-    #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
-    #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
-    if xc > length(V)*9÷10
-        _, xc = findmin(abs.(E .- V))
-        @warn "E-V intersection near the end of the domain, new one is at $xc"
-    end
+    # _, xc = findmin(abs.(reverse(E .- V)))
+    # xc = length(V) - xc
+    # #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
+    # #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
+    # #xc, _ = secant(V .- E, 1, xmax-1, 10, 10^3)
+    # if xc > length(V)*9÷10
+    #     _, xc = findmin(abs.(E .- V))
+    #     @warn "E-V intersection near the end of the domain, new one is at $xc"
+    # end
+    _, xc = findmin(abs.(E .- V))
 
     if (xc>length(V)-20) || (xc<20)
         @warn "E-V intersection outside of the domain, E = $E, choosing xc in the middle of the domain.\nConsider checking the potential V for errors."

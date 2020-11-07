@@ -13,7 +13,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
-      rho = cos_single.(grid, 26, 2)
+      rho = cos_single.(grid, 16, 4)
       rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
       @show simpson_integral(rho, h)
 
@@ -64,8 +64,8 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
             # mixing of the eigenfunction's extremes with the old ones
             @show bc_0 .=  α.*bc_0_new .+ (1-α).*bc_0
             @show bc_end .=  α.*bc_end_new .+ (1-α).*bc_end
-            @show bc_0 .= bc_0_new
-            @show bc_end .= bc_end_new
+            #@show bc_0 .= bc_0_new
+            #@show bc_end .= bc_end_new
             #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] # use default exponential in Numerov
 
             # Check on the convergence by looking at how different is the new density
@@ -90,13 +90,13 @@ end
 # computes the mean-field potential Vks, solves the Shrodinger equation for the
 # relevant quantum numbers, computes the new electronic density and returns everything
 # as a dataframe
-function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e5, Estep=1e-3, verbose=false)
+function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e5, Estep=2e-3, verbose=false)
 
       # Hartree potential term, hotspot of the code
-      Vh = 1 .* V_h(grid, rho) ./800
-      @show minimum(Vh)
+      Vh = 1 .* V_h(grid, rho) ./50
+      @show minimum(Vh), maximum(Vh)
       # Kohn-Sham potential, function of rho
-      Vks = Vext .+ Vh .+ V_xc(rho)
+      Vks = Vext .+ Vh .+ V_xc(rho.*grid.^2)
       # sharp cutoff on the potential, does not have any effect,
       # only used to get results even in the case of a wrong potential calculation
       Vks[Vks.>Vks_cutoff] .= Vks_cutoff
@@ -149,8 +149,8 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
       @show T_S(grid,rho)
       @show E_ext(grid,rho,Vext)
       @show E_H(grid,rho,Vh)
-      @show E_XC(grid,rho)
-      @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho)
+      @show E_XC(grid,rho.*grid.^2)
+      @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho.*grid.^2)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
       E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) - E_XC(grid,rho)
       if N>8
