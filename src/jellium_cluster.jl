@@ -18,11 +18,11 @@ rs_K = 4.86
 rmax = 24
 h = 5e-4
 grid = Vector(h:h:rmax)
-α = 0.1 # mixing coefficient of the densities
+α = 0.07 # mixing coefficient of the densities
 
 
 Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=200, stride=1, verbose=false)
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=300, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 

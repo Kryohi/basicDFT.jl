@@ -18,7 +18,7 @@ en = DataFrame(CSV.File("./Data/ksenergy_$(nucl)_$N.csv"))
 @show len = count(df.iteration.==0)
 @show ndata = Int(length(df.iteration)/len)-1
 @show niter = last(df.iteration)
-s = 10 # we take a point every s, to have more lightweight pdf files
+s = 1 # we take a point every s, to have more lightweight pdf files
 grid = df.grid[1:s:len]
 Vext = V_ext.(grid, Rc(N,rs), rho_b(N,rs))
 
@@ -74,7 +74,7 @@ last_2s = eigf_2s[end]
 # plots of the potential components
 plot(grid[1:end], Vext[1:end], legend=false, xlabel="r", ylabel="Vext")
 savefig("./Plots/Vext_$(nucl)_$N.pdf")
-plot(grid[1:end], last_Vh[1:end], legend=false)
+plot(grid, last_Vh, legend=false)
 savefig("./Plots/Vh_$(nucl)_$N.pdf")
 plot(grid[1:end], last_Vxc[1:end], legend=false)
 savefig("./Plots/Vxc_$(nucl)_$N.pdf")
@@ -83,6 +83,7 @@ savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # numerical instability
 #plot(grid[29900:30000],last_Vh[29900:30000])
+plot(grid[17200:17500], last_Vks[17200:17500], legend=false)
 
 
 # plot of the radial wavefunctions
@@ -110,12 +111,12 @@ savefig("./Plots/rho_$(nucl)_$N.pdf")
 
 
 ## energy values
-plot(0:niter-1, en.e1s)
-plot(0:niter-1, en.e2s)
-plot(0:niter-1, en.e1p)
-plot(0:niter-1, en.e1d)
-plot(0:niter-1, en.E1)
-plot(0:niter-1, en.E2)
+plot(en.e1s, label="1s")
+plot!(en.e1p, label="1p")
+plot!(en.e1d, label="1d")
+plot!(en.e2s, label="2s")
+plot(en.E1)
+plot(en.E2)
 
 
 df = DataFrame(CSV.File("./Data/Vh.csv"))
@@ -140,6 +141,7 @@ smoothed_theta(x,x1,x2,w) =  (x>x1 && x<x2) + (x≥x2)*exp(-(x-x2)/w) + (x≤x1)
 rho = cos_single.(grid, 100, 20)
 #rho = 8 ./(20 .+ (grid .- 20).^4)
 #rho = smoothed_theta.(grid,0,20,1)
+rho = last_rho
 rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
 Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
 Vh = 1 .* V_h(grid, rho) ./100

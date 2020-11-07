@@ -112,3 +112,31 @@ end
 
     return integral
 end
+
+
+## filters & interpolation
+# could be much faster but it's not important
+function moving_average(X::Vector, w::Float64, h::Float64)
+      N = length(X)
+      Xsmooth = zeros(N)
+      l = ceil(Int,w/h)
+      Xsmooth[1:l] = X[1:l]
+      Xsmooth[N-l:N] = X[N-l:N]
+      for i=l+1:N-l
+            Xsmooth[i] = mean(X[i-l:i+l])
+      end
+      return Xsmooth
+end
+function exp_moving_average(X::Vector, w::Float64, h::Float64)
+      N = length(X)
+      Xsmooth = zeros(N)
+      l = ceil(Int,w/h)
+      Xsmooth[1:l] = X[1:l]
+      Xsmooth[N-l:N] = X[N-l:N]
+      for i=l+1:N-l
+            for j=i-l:i+l
+                  Xsmooth[i] += mean(X[i-l:i+l])
+            end
+      end
+      return Xsmooth
+end

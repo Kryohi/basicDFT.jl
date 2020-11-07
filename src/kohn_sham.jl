@@ -1,4 +1,4 @@
-using LinearAlgebra, Printf, DataFrames, CSV
+using LinearAlgebra, Statistics, Printf, DataFrames, CSV
 include("functionals.jl")
 include("numerov.jl")
 
@@ -15,6 +15,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
       rho = cos_single.(grid, 16, 4)
       rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
+      rho = last_rho
       @show simpson_integral(rho, h)
 
       # initial boundary conditions for the wavefunctions (s,p,d)
@@ -47,7 +48,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
             @printf("\nITERATION %d\n", t)
 
-            data_step, energy_step = kohn_sham_step(grid, Vext, rho, bc_0, bc_end, N=N, verbose=verbose)
+            data_step, energy_step = kohn_sham_step(grid, Vext, rho, bc_0, bc_end, N=N, verbose=verbose, step=t)
 
             @show simpson_integral(data_step.rho, h)
 
@@ -69,7 +70,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
             #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] # use default exponential in Numerov
 
             # Check on the convergence by looking at how different is the new density
-            @show delta = simpson_integral((data_step.rho .- rho).^2, h)
+            @show delta = simpson_integral((data_step.rho .- rho).^2, h) / N
 
             # save the found density function to be used and compared in the next iteration
             rho = data_step.rho
@@ -90,16 +91,15 @@ end
 # computes the mean-field potential Vks, solves the Shrodinger equation for the
 # relevant quantum numbers, computes the new electronic density and returns everything
 # as a dataframe
-function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Vks_cutoff=1e5, Estep=2e-3, verbose=false)
+function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Estep=1e-3, verbose=false, step=step)
 
-      # Hartree potential term, hotspot of the code
-      Vh = 1 .* V_h(grid, rho) ./50
+      # Hartree potential term
+      @show Vhsmoothfactor = 2*N*0.99#30*(1+1/(step/10))
+      Vh = V_h(grid, rho) ./ Vhsmoothfactor
       @show minimum(Vh), maximum(Vh)
       # Kohn-Sham potential, function of rho
       Vks = Vext .+ Vh .+ V_xc(rho.*grid.^2)
-      # sharp cutoff on the potential, does not have any effect,
-      # only used to get results even in the case of a wrong potential calculation
-      Vks[Vks.>Vks_cutoff] .= Vks_cutoff
+      Vks = moving_average(Vks, 7h, h)
       #Vks .+= Vwall(grid,Vks)
 
       df = DataFrame(Vh = Vh, Vks = Vks)
@@ -107,23 +107,21 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       # calculation of the eigenfunctions with the effective mean-field potential
       eigv_l0, eigf_l0 = Numerov(0, 2, grid, Vks, bc_0=bc_0[1:2], bc_end=bc_end[1:2],
-       Estep=Estep, maxiter=10^4, verbose=verbose)
+       Estep=Estep, maxiter=12^4, verbose=verbose)
       eigv_l1, eigf_l1 = Numerov(1, 1, grid, Vks, bc_0=bc_0[3:4], bc_end=bc_end[3:4],
        Estep=Estep, maxiter=10^4, verbose=verbose)
       eigv_l2, eigf_l2 = Numerov(2, 1, grid, Vks, bc_0=bc_0[5:6], bc_end=bc_end[5:6],
        Estep=Estep, maxiter=10^4, verbose=verbose)
 
-      @show eigv_l0[1]
+      @show eigv_l0[1], eigv_l0[2]
       @show eigv_l1[1]
-      #@show simpson_integral(eigf_l0[:,1].^2, h)
-      #@show simpson_integral(eigf_l1[:,1].^2, h)
 
       # compute the total electron density
-      rho_new = 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-18
+      rho_new = 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-21
       if N>8
             rho_new .+= 2 .* eigf_l0[:,2].^2 + 10 .* eigf_l2[:,1].^2
       end
-      @show simpson_integral(rho_new, h)
+      #@show simpson_integral(rho_new, h)
       rho_new = rho_new .* N ./ simpson_integral(rho_new, h)
 
       # mixing of the new density with the old one
@@ -152,7 +150,7 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
       @show E_XC(grid,rho.*grid.^2)
       @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho.*grid.^2)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
-      E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) - E_XC(grid,rho)
+      @show E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) - E_XC(grid,rho.*grid.^2)
       if N>8
             E2 += eigv_l0[2]*2 + eigv_l2[1]*10
       end

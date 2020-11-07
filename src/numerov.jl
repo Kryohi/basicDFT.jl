@@ -77,7 +77,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
         # We are searching for the zeros of delta, with increasing values of E, so
         # if there is a change in sign, start the finer search of the 0 of delta(E)
         # with the secant method, between E and E-Estep
-        if (delta*prevdelta < 0 && abs(delta-prevdelta) < 10)
+        if (delta*prevdelta < 0 && abs(delta-prevdelta) < 1)
             verbose && @printf("\n[Numerov] Found a point of inversion at %0.9f - %0.9f\n", E-Estep, E)
 
             eigv[nfound], _ = secant(e ->
@@ -99,6 +99,10 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             # normalize the eigenfunction
             norm2 = sqrt(simpson_integral(eigf[:,nfound].^2, h))
             eigf[:,nfound] = eigf[:,nfound] ./ norm2
+            n_nodes = count_nodes(eigf[:,nfound])
+            if n_nodes > nfound
+                @warn "number of nodes of E$(nfound+1) is $n_nodes"
+            end
 
             # update the number of solutions found
             nfound += 1
@@ -191,17 +195,35 @@ function findEnergyIntersection(E::Float64, V::Vector)
     #     _, xc = findmin(abs.(E .- V))
     #     @warn "E-V intersection near the end of the domain, new one is at $xc"
     # end
-    _, xc = findmin(abs.(E .- V))
+    _, Vmin = findmin(V[1:length(V)÷2])
+    _, xc = findmin(abs.(E .- V[Vmin+1:end]))
+    xc += Vmin+1
+    # if (xc<length(V)÷20)
+    #     xc_old = xc
+    #     _, xc = findmin(abs.(E .- V[xc_old+10:end]))
+    #     xc += xc_old+10
+    #     @warn "xc near 0 at $xc_old, choosing next intersection with potential in xc = $xc"
+    # end
 
-    if (xc>length(V)-20) || (xc<20)
-        @warn "E-V intersection outside of the domain, E = $E, choosing xc in the middle of the domain.\nConsider checking the potential V for errors."
-        xc = length(V)÷2
+    if (xc>length(V)-1000) || (xc<50)
+        @warn "E-V intersection outside of the domain ($xc), E = $E, choosing xc in the middle of the domain.\nConsider checking the potential V for errors."
+        xc = length(V)÷3
     end
 
     return xc
 end
 
+function count_nodes(X::Vector)
+    nodes = 0
+    for i=1:length(X)-1
+        (X[i]*X[i+1]<0) && nodes+=1
+    end
+    return nodes
+end
+
+
 # TODO:
+# count nodes, if too many restart from previous eigenvalue with halved Estep
 # understand if it is ever useful to have longer than 2 boundary conditions, simplify code
 # try again to use the secant method instead of the slow find() for the E-V intersection
 # add test with a more complex potential
