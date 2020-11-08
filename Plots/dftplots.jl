@@ -4,7 +4,7 @@ Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(N,rs) = 3*N/(4π*rs^3) # density of charge inside the nucleus
 
 nucl = "Na"
-N = 20
+N = 8
 
 if nucl == "Na"
     rs = 3.93
@@ -130,6 +130,8 @@ df = DataFrame(CSV.File("./Data/rho.csv"))
 plot(grid, df.rho)
 plot(grid, df.eig1s)
 plot(grid, df.eig2s)
+
+
 
 # initial conditions
 rmax = 32

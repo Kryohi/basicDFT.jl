@@ -69,7 +69,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
     high_derivative_workaround = false
     # flag put to true if the number of nodes of the solution can't reach the correct
     # number after some attempts, then the solution with the lowest nodes is chosen
-    wrong_nodes_workaround = false
+    max_attempts = 5
     n_attempts = 0
     tmp_eigf_backup = zeros(Float64, xmax)
     eigv_backup = 0.0
@@ -85,12 +85,11 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
         # and compute the difference in the derivative of the logarithms at xc
         delta = findDelta!(E, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, strict_xc, verbose, yf, yb)
         #@show delta
-
-        # We are searching for the zeros of delta, with increasing values of E, so
-        # if there is a change in sign, start the finer search of the 0 of delta(E)
-        # with the secant method, between E and E-Estep
         (delta*prevdelta < 0) && (@show delta, prevdelta, E)
 
+        # if the change of sign of delta comes with high values, a finer search
+        # in a smaller interval is performed
+        # if Estep was not reduced, the secant method might not converge
         if ((delta*prevdelta < 0) && abs(delta-prevdelta) > 1000.0)
             high_derivative_workaround = true
             @show Estep = Estep/10
@@ -102,9 +101,13 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     E = E-Estep*i
                     break
                 end
-                prevdelta = delta
+                prevdelta = delta # NOTE check if it's ok tu put it here
             end
         end
+
+        # We are searching for the zeros of delta, with increasing values of E, so
+        # if there is a change in sign, start the finer search of the 0 of delta(E)
+        # with the secant method, between E and E-Estep
         if delta*prevdelta < 0 #&& abs(delta-prevdelta) < 1000.0
             verbose && @printf("\n[Numerov] Found a point of inversion at %0.9f - %0.9f\n", E-Estep, E)
 
@@ -114,7 +117,8 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
 
-
+            # sometimes the secant gives NaNs due to a bad energy interval,
+            # but the search for solutions can continue
             if isnan(eigv[nfound])
                 # if the secant gives NaN but we have a previous solution with the wrong
                 # number of nodes, we accept that
@@ -128,7 +132,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     # attempts counter increased in order to accept and save the solution later
                     n_attempts = 1000
                 else
-                    @warn "last eigenfunction search gave NaNs, skipping this energy interval"
+                    @warn "last eigenfunction search gave NaNs, skipping this energy interval \nhigh_energy_workaround=$high_energy_workaround"
                     @goto skip_interval
                 end
             end
@@ -150,19 +154,19 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             # we count the nodes of the function as an additional test
             n_nodes = count_nodes(tmp_eigf)
 
-            if n_nodes != nfound-1 || n_attempts > 3
+            if n_nodes != nfound-1 || n_attempts > max_attempts
                 @info "number of nodes of E$nfound is $n_nodes, skipping solution"
-                n_attempts += 1
 
-                if n_attempts == 1 # should also probably check if solution is identical
+                if n_attempts == 0 # should also probably check if solution is identical
                     eigv_backup = eigv[nfound]
                     tmp_eigf_backup = tmp_eigf
                 end
+                n_attempts += 1
 
                 # we save accept the first solution even if it might be wrong
-                if n_attempts > 2
+                if n_attempts > max_attempts+1
                     nn = count_nodes(tmp_eigf_backup)
-                    @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup"
+                    @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup, after $n_attempts tries"
                     # update chosen solution
                     eigf[:,nfound] = tmp_eigf_backup
                     eigv[nfound] = eigv_backup
@@ -180,7 +184,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     @show tmp_eigf[xc-5:xc+5]
                 end
             else
-                # everything seems to work
+                # once in a while, everything works correctly
                 @show n_nodes
                 eigf[:,nfound] = tmp_eigf
 
@@ -188,8 +192,8 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                 nfound += 1
             end
             if high_derivative_workaround
-                @show Estep = Estep*10
-                @show high_derivative_workaround = false
+                Estep = Estep*10
+                high_derivative_workaround = false
             end
         end
 
@@ -321,7 +325,7 @@ end
 
 
 # TODO:
-# count nodes, if too many restart from previous eigenvalue with halved Estep
+# return stuff even if E reached Vmax
 # understand if it is ever useful to have longer than 2 boundary conditions, simplify code
 # try again to use the secant method instead of the slow find() for the E-V intersection
 # add test with a more complex potential

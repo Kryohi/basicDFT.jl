@@ -22,7 +22,7 @@ grid = Vector(h:h:rmax)
 
 
 Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=120, stride=2, verbose=false)
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=200, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
