@@ -34,7 +34,7 @@ eigf_1d = [df.eigf_1d[i*len+1:s:(i+1)*len] for i=0:ndata]
 
 ## plots of the evolution of the functions
 N_plots = 10
-strd = 1#Int(floor(ndata/N_plots))
+strd = 10#Int(floor(ndata/N_plots))
 col = palette([:orange, :purple], length(rhos[1:strd:end]))
 xlim = floor(Int,grid[end]*1)
 
@@ -83,7 +83,7 @@ savefig("./Plots/Vks_$(nucl)_$N.pdf")
 
 # numerical instability
 #plot(grid[29900:30000],last_Vh[29900:30000])
-plot(grid[17200:17500], last_Vks[17200:17500], legend=false)
+plot(grid[17500:17900], last_Vks[17500:17900], legend=false)
 
 
 # plot of the radial wavefunctions
@@ -129,7 +129,7 @@ plot(grid[1000:end-910], Vksq[1000:end-910])
 df = DataFrame(CSV.File("./Data/rho.csv"))
 plot(grid, df.rho)
 plot(grid, df.eig1s)
-
+plot(grid, df.eig2s)
 
 # initial conditions
 rmax = 32

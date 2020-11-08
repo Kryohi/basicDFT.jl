@@ -13,9 +13,9 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
       # set the initial trial electron density
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
-      rho = cos_single.(grid, 16, 4)
+      rho = cos_single.(grid, 8, 2)
       rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
-      rho = last_rho
+      #rho = last_rho
       @show simpson_integral(rho, h)
 
       # initial boundary conditions for the wavefunctions (s,p,d)
@@ -67,7 +67,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
             @show bc_end .=  α.*bc_end_new .+ (1-α).*bc_end
             #@show bc_0 .= bc_0_new
             #@show bc_end .= bc_end_new
-            #bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] # use default exponential in Numerov
+            bc_end .=  [-1.;-1.;-1.;-1.;-1.;-1.] # use default exponential in Numerov
 
             # Check on the convergence by looking at how different is the new density
             @show delta = simpson_integral((data_step.rho .- rho).^2, h) / N
@@ -94,12 +94,13 @@ end
 function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Estep=1e-3, verbose=false, step=step)
 
       # Hartree potential term
-      @show Vhsmoothfactor = 2*N*0.99#30*(1+1/(step/10))
+      @show Vhsmoothfactor = 30*0.9#30*(1+1/(step/10))
       Vh = V_h(grid, rho) ./ Vhsmoothfactor
+      #Vh = Vh .- maximum(Vh)
       @show minimum(Vh), maximum(Vh)
       # Kohn-Sham potential, function of rho
       Vks = Vext .+ Vh .+ V_xc(rho.*grid.^2)
-      Vks = moving_average(Vks, 7h, h)
+      Vks = custom_moving_average(Vks)
       #Vks .+= Vwall(grid,Vks)
 
       df = DataFrame(Vh = Vh, Vks = Vks)
@@ -107,11 +108,11 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       # calculation of the eigenfunctions with the effective mean-field potential
       eigv_l0, eigf_l0 = Numerov(0, 2, grid, Vks, bc_0=bc_0[1:2], bc_end=bc_end[1:2],
-       Estep=Estep, maxiter=12^4, verbose=verbose)
+       Estep=Estep, maxiter=12^4, tol=1e-5, strict_xc=true, verbose=verbose)
       eigv_l1, eigf_l1 = Numerov(1, 1, grid, Vks, bc_0=bc_0[3:4], bc_end=bc_end[3:4],
-       Estep=Estep, maxiter=10^4, verbose=verbose)
+       Estep=Estep, maxiter=10^4, strict_xc=true, verbose=verbose)
       eigv_l2, eigf_l2 = Numerov(2, 1, grid, Vks, bc_0=bc_0[5:6], bc_end=bc_end[5:6],
-       Estep=Estep, maxiter=10^4, verbose=verbose)
+       Estep=Estep, maxiter=10^4, strict_xc=true, verbose=verbose)
 
       @show eigv_l0[1], eigv_l0[2]
       @show eigv_l1[1]
@@ -129,7 +130,7 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       rho_new = rho_new .* N ./ simpson_integral(rho_new, h)
 
-      df = DataFrame(rho = rho_new, eig1s = eigf_l0[:,1])
+      df = DataFrame(rho = rho_new, eig1s = eigf_l0[:,1], eig2s = eigf_l0[:,2])
       CSV.write("./Data/rho.csv", df)
 
       # save the computed functions
@@ -145,10 +146,10 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       # Consistency check through the energy
       @show T_S(grid,rho)
-      @show E_ext(grid,rho,Vext)
+      @show E_ext(grid,rho.*grid.^2,Vext)
       @show E_H(grid,rho,Vh)
       @show E_XC(grid,rho.*grid.^2)
-      @show E1 = T_S(grid,rho) + E_ext(grid,rho,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho.*grid.^2)
+      @show E1 = T_S(grid,rho) + E_ext(grid,rho.*grid.^2,Vext) + E_H(grid,rho,Vh) + E_XC(grid,rho.*grid.^2)
       # sum of the eigenvalues - 1/2 hartree energy - exchange
       @show E2 = eigv_l0[1]*2 + eigv_l1[1]*6 - E_H(grid,rho,Vh) - E_XC(grid,rho.*grid.^2)
       if N>8

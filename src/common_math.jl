@@ -12,7 +12,7 @@ function secant(f::Function, p1, p2, eps::Float64, nmax::Int)
     end
 
     y = f(p)
-    error("Method did not converge. The last iteration gives $p with function value $y")
+    @warn "Method did not converge. The last iteration gives $p with function value $y"
 end
 
 # best used on convex functions, choose p1 and p2 carefully
@@ -30,7 +30,7 @@ function secant(f_::Vector, p1::Int, p2::Int, eps::Int, nmax::Int)
         p2 = p
     end
     y = f[p]
-    error("Method did not converge. The last iteration gives $p with function value $y")
+    @warn "Method did not converge. The last iteration gives $p with function value $y"
 end
 
 function bettersecant(f_::Vector, p1::Int, p2::Int, eps::Int, nmax::Int)
@@ -54,7 +54,7 @@ function bettersecant(f_::Vector, p1::Int, p2::Int, eps::Int, nmax::Int)
         p2 = p
     end
     y = f[p]
-    error("Method did not converge. The last iteration gives $p with function value $y")
+    @warn "Method did not converge. The last iteration gives $p with function value $y"
 end
 
 # 3-point numerical derivative at point x
@@ -114,7 +114,7 @@ end
 end
 
 
-## filters & interpolation
+## filters & interpolation (using DSP.jl would be likely better)
 # could be much faster but it's not important
 function moving_average(X::Vector, w::Float64, h::Float64)
       N = length(X)
@@ -133,10 +133,24 @@ function exp_moving_average(X::Vector, w::Float64, h::Float64)
       l = ceil(Int,w/h)
       Xsmooth[1:l] = X[1:l]
       Xsmooth[N-l:N] = X[N-l:N]
-      for i=l+1:N-l
+      tail = exp.(-Vector(1:l) .* (1/4))
+      c = [reverse(tail); 1.; tail]
+      @show c /= sum(c)
+      for i=l+1:N-l-1
             for j=i-l:i+l
-                  Xsmooth[i] += mean(X[i-l:i+l])
+                  Xsmooth[i] += c[j-i+l+1]*X[j]
             end
       end
       return Xsmooth
+end
+# fixes oscillations of period 2h
+function custom_moving_average(X::Vector)
+    N = length(X)
+    Xsmooth = zeros(N)
+    Xsmooth[1] = X[1]
+    Xsmooth[N] = X[N]
+    for i=2:N-1
+      Xsmooth[i] = 0.5*X[i] + 0.25*X[i-1] + 0.25*X[i+1]
+    end
+    return Xsmooth
 end

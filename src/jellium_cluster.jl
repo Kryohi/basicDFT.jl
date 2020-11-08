@@ -12,17 +12,17 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
     end
 end
 
-N = 20
+N = 8
 rs_Na = 3.93
 rs_K = 4.86
-rmax = 24
+rmax = 18#24
 h = 5e-4
 grid = Vector(h:h:rmax)
-α = 0.07 # mixing coefficient of the densities
+α = 0.05 # mixing coefficient of the densities
 
 
 Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=300, stride=2, verbose=false)
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=120, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
