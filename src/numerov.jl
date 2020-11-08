@@ -110,12 +110,30 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
 
             eigv[nfound], _ = secant(e ->
                 findDelta!(e, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, strict_xc, verbose, yf, yb),
-                E-Estep, E, tol+1e-1*(nfound+1)÷2, maxiter)
+                E-Estep, E, tol, maxiter) #tol+1e-1*(nfound+1)÷2
 
             verbose && @printf("\nE%d = %.9f\n\n", nfound, eigv[nfound])
-            #xc_wrong = findEnergyIntersection(E,V)
+
+
+            if isnan(eigv[nfound])
+                # if the secant gives NaN but we have a previous solution with the wrong
+                # number of nodes, we accept that
+                if n_attempts>0
+                    nn = count_nodes(tmp_eigf_backup)
+                    @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup"
+                    # update chosen solution
+                    yf = tmp_eigf_backup
+                    yb = tmp_eigf_backup
+                    eigv[nfound] = eigv_backup
+                    # attempts counter increased in order to accept and save the solution later
+                    n_attempts = 1000
+                else
+                    @warn "last eigenfunction search gave NaNs, skipping this energy interval"
+                    @goto skip_interval
+                end
+            end
+
             xc = findEnergyIntersection(eigv[nfound],V,strict_xc)
-            #@show xc-xc_wrong
 
             # put together yf and yb to form the eigenfunction
             for x = 1:xc
@@ -132,16 +150,17 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             # we count the nodes of the function as an additional test
             n_nodes = count_nodes(tmp_eigf)
 
-            if n_nodes != nfound-1 || n_attempts > 5
+            if n_nodes != nfound-1 || n_attempts > 3
                 @info "number of nodes of E$nfound is $n_nodes, skipping solution"
+                n_attempts += 1
 
-                if n_attempts == 0 # should also probably check if solution is identical
+                if n_attempts == 1 # should also probably check if solution is identical
                     eigv_backup = eigv[nfound]
                     tmp_eigf_backup = tmp_eigf
                 end
 
                 # we save accept the first solution even if it might be wrong
-                if n_attempts > 5
+                if n_attempts > 2
                     nn = count_nodes(tmp_eigf_backup)
                     @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup"
                     # update chosen solution
@@ -152,7 +171,6 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     # update the number of solutions found
                     nfound += 1
                 end
-                n_attempts += 1
 
             elseif nfound>1 && (abs(eigv[nfound]-eigv[nfound-1])<1e-5)
 
@@ -175,6 +193,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             end
         end
 
+        @label skip_interval
         prevdelta = delta
         E += Estep
 
@@ -252,7 +271,7 @@ end
     end
 end
 
-function findEnergyIntersection(E::Float64, V::Vector, strict_xc)
+function findEnergyIntersection(E::Float64, V::Vector, strict_xc::Bool)
     # _, xc = findmin(abs.(reverse(E .- V)))
     # xc = length(V) - xc
     # #xc, _ = secant(V .- E, (xmax*9)÷10, xmax-1, 10, 10^3)
@@ -263,20 +282,24 @@ function findEnergyIntersection(E::Float64, V::Vector, strict_xc)
     #     @warn "E-V intersection near the end of the domain, new one is at $xc"
     # end
     _, Vmin = findmin(V[1:length(V)*2÷3])
-    _, xc = findmin(abs.(E .- V[Vmin:length(V)*3÷4]))
-    xc += Vmin
+    _, xc = findmin(abs.(E .- V[Vmin+1:length(V)*3÷4]))
+    xc += Vmin+1
     # if (xc<length(V)÷20)
     #     xc_old = xc
     #     _, xc = findmin(abs.(E .- V[xc_old+10:end]))
     #     xc += xc_old+10
     #     @warn "xc near 0 at $xc_old, choosing next intersection with potential in xc = $xc"
     # end
-    if (xc>length(V)*9÷10)
-        _, xc = findmin(abs.(E .- V[Vmin]))
-        @warn "xc was too high, found a new one at $xc"
+    if (xc<50)
+        old_xc = xc
+        _, Vmin = findmin(V[xc+50:length(V)*2÷3])
+        Vmin += xc+50
+        _, xc = findmin(abs.(E .- V[Vmin:length(V)*3÷4]))
+        xc += Vmin
+        @warn "xc was too small ($old_xc), found a new one at $xc"
     end
 
-    if (strict_xc==true) && (xc>length(V)*9÷10) || (xc<50)
+    if (strict_xc==true) && ((xc>length(V)*9÷10) || (xc<52))
         @warn "E-V intersection outside of the domain ($xc), E = $E, choosing xc in the middle of the domain.\nConsider checking the potential V for errors."
         xc = length(V)÷3
     end
@@ -285,7 +308,9 @@ function findEnergyIntersection(E::Float64, V::Vector, strict_xc)
 end
 
 function count_nodes(X::Vector)
-    nodes = sum(X.==0)
+    nodes = 0
+    numzeros = sum(X.==0)
+    (sum(X.==0) > 0) && @info "the function has $numzeros points valued 0, check the number of nodes manually"
     @inbounds for i=1:length(X)-1
         if X[i]*X[i+1]<0
             nodes += 1

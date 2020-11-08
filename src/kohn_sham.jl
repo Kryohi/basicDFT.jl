@@ -94,7 +94,7 @@ end
 function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Estep=1e-3, verbose=false, step=step)
 
       # Hartree potential term
-      @show Vhsmoothfactor = 30*0.9#30*(1+1/(step/10))
+      @show Vhsmoothfactor = 40*0.95#30*(1+1/(step/10))
       Vh = V_h(grid, rho) ./ Vhsmoothfactor
       #Vh = Vh .- maximum(Vh)
       @show minimum(Vh), maximum(Vh)
