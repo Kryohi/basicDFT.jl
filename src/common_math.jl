@@ -1,18 +1,38 @@
 
 # finds the zero of f nearest to the interval [p1,p2]
-function secant(f::Function, p1, p2, eps::Float64, nmax::Int)
+function secant(f::Function, p1, p2, eps::Float64, nmax::Int; MT=false)
     p = 0.
+    y1, y2, y = 0., 0., 0.
     for n = 1:nmax
-        p = p2 - f(p2)*(p2-p1)/(f(p2)-f(p1))
-        if abs(p-p2) < eps || f(p) == 0
-            return p, f(p)
+        if MT
+            pp = [p1;p2]
+            yy = [0.;0.]
+            Threads.@threads for i=1:2
+                yy[i] = f(pp[i])
+            end
+            y1, y2 = yy[1], yy[2]
+        else
+            y1 = f(p1)
+            y2 = f(p2)
+        end
+
+        if isnan(y1) || isnan(y2)
+            @warn "Secant returning NaNs, with p1=$p1, p2=$p2"
+            return NaN, NaN
+        end
+
+        p = p2 - y2*(p2-p1)/(y2-y1)
+
+        if abs(p-p2) < eps || y2 == 0
+            y = f(p)
+            isnan(y) && @warn "Secant returning NaNs, with p=$p, p2=$p2"
+            return p, y
         end
         p1 = p2
         p2 = p
     end
-
-    y = f(p)
     @warn "Method did not converge. The last iteration gives $p with function value $y"
+    return NaN, NaN
 end
 
 # best used on convex functions, choose p1 and p2 carefully

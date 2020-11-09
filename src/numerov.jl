@@ -69,8 +69,9 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
     high_derivative_workaround = false
     # flag put to true if the number of nodes of the solution can't reach the correct
     # number after some attempts, then the solution with the lowest nodes is chosen
-    max_attempts = 5
+    max_attempts = 6
     n_attempts = 0
+    nodes_backup = ones
     tmp_eigf_backup = zeros(Float64, xmax)
     eigv_backup = 0.0
 
@@ -90,14 +91,20 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
         # if the change of sign of delta comes with high values, a finer search
         # in a smaller interval is performed
         # if Estep was not reduced, the secant method might not converge
-        if ((delta*prevdelta < 0) && abs(delta-prevdelta) > 1000.0)
+        if ((delta*prevdelta < 0) && abs(delta-prevdelta) > 100.0)
             high_derivative_workaround = true
-            @show Estep = Estep/10
+            Estep = Estep/10
             for i=10:-1:1
                 delta = findDelta!(E-Estep*i, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, strict_xc, verbose, yf, yb)
                 @show E-Estep*i, delta
+                if abs(delta-prevdelta) > 100000.0
+                    #@info "finer search due to high derivative finished with \n\tdelta=$delta at E=$(E-Estep*i), prevDelta=$prevdelta at E=$(E-Estep*(i+1))\n\tDISCARDING interval"
+                    Estep = Estep*10
+                    high_derivative_workaround = false
+                    @goto skip_interval
+                end
                 if delta*prevdelta < 0
-                    @info "finer search due to high derivative finished with \ndelta=$delta at E=$(E-Estep*i), prevDelta=$prevdelta at E=$(E-Estep*(i+1))"
+                    @info "finer search due to high derivative finished with \n\tdelta=$delta at E=$(E-Estep*i), prevDelta=$prevdelta at E=$(E-Estep*(i+1))"
                     E = E-Estep*i
                     break
                 end
@@ -122,7 +129,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             if isnan(eigv[nfound])
                 # if the secant gives NaN but we have a previous solution with the wrong
                 # number of nodes, we accept that
-                if n_attempts>0
+                if n_attempts>max_attempts-1
                     nn = count_nodes(tmp_eigf_backup)
                     @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup"
                     # update chosen solution
@@ -132,7 +139,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     # attempts counter increased in order to accept and save the solution later
                     n_attempts = 1000
                 else
-                    @warn "last eigenfunction search gave NaNs, skipping this energy interval \nhigh_energy_workaround=$high_energy_workaround"
+                    @warn "last eigenfunction search gave NaNs, skipping this energy interval \n\t high_derivative_workaround=$high_derivative_workaround"
                     @goto skip_interval
                 end
             end
@@ -162,18 +169,24 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     tmp_eigf_backup = tmp_eigf
                 end
                 n_attempts += 1
-
-                # we save accept the first solution even if it might be wrong
+                #nodes_backup[n_attempts] = n_nodes
+                # we accept and save the first solution even if it might be wrong
                 if n_attempts > max_attempts+1
-                    nn = count_nodes(tmp_eigf_backup)
-                    @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup, after $n_attempts tries"
-                    # update chosen solution
-                    eigf[:,nfound] = tmp_eigf_backup
-                    eigv[nfound] = eigv_backup
-                    # reset attempts counter
-                    n_attempts = 0
-                    # update the number of solutions found
-                    nfound += 1
+                    if high_derivative_workaround
+                        Estep = Estep*10
+                        high_derivative_workaround = false
+                        @goto skip_interval
+                    else
+                        nn = count_nodes(tmp_eigf_backup)
+                        @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup, after $n_attempts tries"
+                        # update chosen solution
+                        eigf[:,nfound] = tmp_eigf_backup
+                        eigv[nfound] = eigv_backup
+                        # reset attempts counter
+                        n_attempts = 0
+                        # update the number of solutions found
+                        nfound += 1
+                    end
                 end
 
             elseif nfound>1 && (abs(eigv[nfound]-eigv[nfound-1])<1e-5)

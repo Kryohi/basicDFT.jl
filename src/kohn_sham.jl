@@ -12,8 +12,9 @@ include("numerov.jl")
 function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
 
       # set the initial trial electron density
+      h = grid[2]-grid[1]
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
-      rho = cos_single.(grid, 8, 2)
+      rho = cos_single.(grid, 30, -1)
       rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
       #rho = last_rho
       @show simpson_integral(rho, h)
@@ -93,8 +94,9 @@ end
 # as a dataframe
 function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, bc_end::Vector; N=8, Estep=1e-3, verbose=false, step=step)
 
+      h = grid[2]-grid[1]
       # Hartree potential term
-      @show Vhsmoothfactor = 50*0.90#30*(1+1/(step/10))
+      @show Vhsmoothfactor = 60#30*(1+1/(step/10))
       Vh = V_h(grid, rho) ./ Vhsmoothfactor
       #Vh = Vh .- maximum(Vh)
       @show minimum(Vh), maximum(Vh)
@@ -102,20 +104,25 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
       Vks = Vext .+ Vh .+ V_xc(rho.*grid.^2)
       Vks = custom_moving_average(Vks)
       #Vks .+= Vwall(grid,Vks)
+      mins = findall(x -> x<1e-15, der5(Vks,h))
+      @show length(mins)
 
       df = DataFrame(Vh = Vh, Vks = Vks)
       CSV.write("./Data/Vh.csv", df)
 
       # calculation of the eigenfunctions with the effective mean-field potential
       eigv_l0, eigf_l0 = Numerov(0, 2, grid, Vks, bc_0=bc_0[1:2], bc_end=bc_end[1:2],
-       Estep=Estep, maxiter=12^4, tol=1e-5, strict_xc=true, verbose=verbose)
+       Estep=Estep, maxiter=12^4, tol=1e-6, strict_xc=true, verbose=verbose)
       eigv_l1, eigf_l1 = Numerov(1, 1, grid, Vks, bc_0=bc_0[3:4], bc_end=bc_end[3:4],
-       Estep=Estep, maxiter=10^4, strict_xc=true, verbose=verbose)
+       Estep=2*Estep, maxiter=10^4, strict_xc=true, verbose=verbose)
       eigv_l2, eigf_l2 = Numerov(2, 1, grid, Vks, bc_0=bc_0[5:6], bc_end=bc_end[5:6],
-       Estep=Estep, maxiter=10^4, strict_xc=true, verbose=verbose)
+       Estep=2*Estep, maxiter=10^4, strict_xc=true, verbose=verbose)
 
       @show eigv_l0[1], eigv_l0[2]
       @show eigv_l1[1]
+      n2 = sqrt(simpson_integral(eigf_l0[:,2].^2, h))
+      (abs(n2-1)>1e-4) && @error "2s is not normalized, n2=$n2"
+      eigf_l0[:,2] = eigf_l0[:,2] ./ n2
 
       # compute the total electron density
       rho_new = 2 .* eigf_l0[:,1].^2 + 6 .* eigf_l1[:,1].^2 .+ 1e-21

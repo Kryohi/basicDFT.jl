@@ -4,7 +4,7 @@ Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(N,rs) = 3*N/(4π*rs^3) # density of charge inside the nucleus
 
 nucl = "Na"
-N = 8
+N = 20
 
 if nucl == "Na"
     rs = 3.93
@@ -33,7 +33,7 @@ eigf_1d = [df.eigf_1d[i*len+1:s:(i+1)*len] for i=0:ndata]
 
 
 ## plots of the evolution of the functions
-N_plots = 10
+N_plots = 16
 strd = 10#Int(floor(ndata/N_plots))
 col = palette([:orange, :purple], length(rhos[1:strd:end]))
 xlim = floor(Int,grid[end]*1)
@@ -94,6 +94,8 @@ if N==20
     plot!(grid[1:end÷2], last_2s[1:end÷2], label="2s")
 end
 savefig("./Plots/eigf_$(nucl)_$N.pdf")
+count_nodes(last_2s[1:end÷2])
+plot(grid, der5(last_2s,h))
 
 # plot of the radial probabilities
 plot(grid[1:end÷2], last_1s[1:end÷2].^2, label="1s")
@@ -128,25 +130,26 @@ plot(grid[1000:end-910], Vksq[1000:end-910])
 
 df = DataFrame(CSV.File("./Data/rho.csv"))
 plot(grid, df.rho)
+plot(grid, der5(df.eig2s,h)./df.eig1s)
 plot(grid, df.eig1s)
 plot(grid, df.eig2s)
-
+simpson_integral(df.rho,h)
 
 
 # initial conditions
 rmax = 32
-h = 1e-4
+h = 2e-4
 N = 20
 grid = Vector(h:h:rmax)
 cos_single(x,w,c) = cos((x-c)*π/w)^4 * (abs((x-c)*π/w) < π/2) + 1e-4 + (1e-4*(x≥c+w/2)*exp(-x+c-w/2) - 1e-4) + 1e-18
 smoothed_theta(x,x1,x2,w) =  (x>x1 && x<x2) + (x≥x2)*exp(-(x-x2)/w) + (x≤x1)*exp((x-x1)/w)
-rho = cos_single.(grid, 100, 20)
+rho = cos_single.(grid, 20, -1)
 #rho = 8 ./(20 .+ (grid .- 20).^4)
 #rho = smoothed_theta.(grid,0,20,1)
 rho = last_rho
 rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
 Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
-Vh = 1 .* V_h(grid, rho) ./100
+Vh = 1 .* V_h(grid, rho) ./ grid
 Vxc = V_xc(rho.*grid.^2)
 Vks = Vext .+ Vh .+ Vxc
 bc_0 = [rho[1:2]./N; rho[1:2]./N; rho[1:2]./N].^(0.5)
