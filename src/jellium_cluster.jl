@@ -27,10 +27,20 @@ CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
 Vext = V_ext.(grid, Rc(N,rs_K), rho_b(N,rs_K))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=200, stride=2)
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
+N = 8
+Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2, verbose=false)
+CSV.write("./Data/ksfunctions_Na_$N.csv", data)
+CSV.write("./Data/ksenergy_Na_$N.csv", energy)
+
+Vext = V_ext.(grid, Rc(N,rs_K), rho_b(N,rs_K))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2)
+CSV.write("./Data/ksfunctions_K_$N.csv", data)
+CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
 #@time solve_KS(20, α, grid, Vext, max_iter=10, stride=2)
 #Juno.@profiler

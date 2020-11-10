@@ -85,7 +85,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
         # we run forward and backward Numerov, store the results in yf and yb
         # and compute the difference in the derivative of the logarithms at xc
         delta = findDelta!(E, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, strict_xc, verbose, yf, yb)
-        #@show delta
+
         (delta*prevdelta < 0) && (@show delta, prevdelta, E)
 
         # if the change of sign of delta comes with high values, a finer search
@@ -96,19 +96,14 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             Estep = Estep/10
             for i=10:-1:1
                 delta = findDelta!(E-Estep*i, V, centrifugal, h, xmin, xmax, bc_0_exp, bc_end_exp, strict_xc, verbose, yf, yb)
-                @show E-Estep*i, delta
-                if abs(delta-prevdelta) > 100000.0
-                    #@info "finer search due to high derivative finished with \n\tdelta=$delta at E=$(E-Estep*i), prevDelta=$prevdelta at E=$(E-Estep*(i+1))\n\tDISCARDING interval"
-                    Estep = Estep*10
-                    high_derivative_workaround = false
-                    @goto skip_interval
-                end
+
                 if delta*prevdelta < 0
                     @info "finer search due to high derivative finished with \n\tdelta=$delta at E=$(E-Estep*i), prevDelta=$prevdelta at E=$(E-Estep*(i+1))"
                     E = E-Estep*i
                     break
+                else
+                    prevdelta = delta
                 end
-                prevdelta = delta # NOTE check if it's ok tu put it here
             end
         end
 
@@ -162,7 +157,7 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
             n_nodes = count_nodes(tmp_eigf)
 
             if n_nodes != nfound-1 || n_attempts > max_attempts
-                @info "number of nodes of E$nfound is $n_nodes, skipping solution"
+                @info "number of nodes of E$nfound is $n_nodes, skipping solution at $n_attempts attempts, "
 
                 if n_attempts == 0 # should also probably check if solution is identical
                     eigv_backup = eigv[nfound]
@@ -175,18 +170,16 @@ function Numerov(l::Int, nmax::Int, grid, V::Vector; bc_0=[-1.,-1.], bc_end=[-1.
                     if high_derivative_workaround
                         Estep = Estep*10
                         high_derivative_workaround = false
-                        @goto skip_interval
-                    else
-                        nn = count_nodes(tmp_eigf_backup)
-                        @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup, after $n_attempts tries"
-                        # update chosen solution
-                        eigf[:,nfound] = tmp_eigf_backup
-                        eigv[nfound] = eigv_backup
-                        # reset attempts counter
-                        n_attempts = 0
-                        # update the number of solutions found
-                        nfound += 1
                     end
+                    nn = count_nodes(tmp_eigf_backup)
+                    @warn "accepting solution with $nn nodes at E$nfound = $eigv_backup, after $n_attempts tries"
+                    # update chosen solution
+                    eigf[:,nfound] = tmp_eigf_backup
+                    eigv[nfound] = eigv_backup
+                    # reset attempts counter
+                    n_attempts = 0
+                    # update the number of solutions found
+                    nfound += 1
                 end
 
             elseif nfound>1 && (abs(eigv[nfound]-eigv[nfound-1])<1e-5)

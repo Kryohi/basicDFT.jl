@@ -14,7 +14,7 @@ function solve_KS(N, α, grid, Vext; max_iter=80, stride=1, verbose=false)
       # set the initial trial electron density
       h = grid[2]-grid[1]
       cos_single(x,l,c) = cos((x-c)*π/l)^2 * (abs((x-c)*π/l) < π/2) + 1e-12
-      rho = cos_single.(grid, 30, -1)
+      rho = cos_single.(grid, 30, 0) #30,-1
       rho = rho .* N ./ simpson_integral(rho, h) #norm(rho,1)#
       #rho = last_rho
       @show simpson_integral(rho, h)
@@ -96,7 +96,7 @@ function kohn_sham_step(grid::Vector, Vext::Vector, rho::Vector, bc_0::Vector, b
 
       h = grid[2]-grid[1]
       # Hartree potential term
-      @show Vhsmoothfactor = 60#30*(1+1/(step/10))
+      @show Vhsmoothfactor = 120#30*(1+1/(step/10))# 120 per Na
       Vh = V_h(grid, rho) ./ Vhsmoothfactor
       #Vh = Vh .- maximum(Vh)
       @show minimum(Vh), maximum(Vh)

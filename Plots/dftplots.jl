@@ -3,7 +3,7 @@ using DataFrames, CSV, Plots, ColorSchemes
 Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
 rho_b(N,rs) = 3*N/(4π*rs^3) # density of charge inside the nucleus
 
-nucl = "Na"
+nucl = "K"
 N = 20
 
 if nucl == "Na"
