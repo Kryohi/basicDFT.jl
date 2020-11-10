@@ -13,7 +13,7 @@ end
 # Exchange-Correlation potential
 function V_xc(rho::Vector)
     # derivative of xc energy times rho
-    dExc = -0.25*cbrt(3/π).*cbrt.(rho) - 0.44*2^(2/3) ./ (3 .*cbrt.(3π.*rho).*(7.8 .+ 2^(2/3)./cbrt.(3π.*rho)).^2)
+    dExc = -0.25*cbrt(3/π).*cbrt.(rho) - 0.44*2^(2/3) ./ (3 .*cbrt.(3π.*(rho.+1e-42)).*(7.8 .+ 2^(2/3)./cbrt.(3π.*(rho.+1e-42))).^2)
 
     return local_energy.(rho) .+ dExc
 end
@@ -27,7 +27,7 @@ end
     h = grid[2]-grid[1]
 
     Vh[end] = 4pi*simpson_integral(grid.^2 .* rho, h)/grid[end]
-    Vh[1] = 4pi*simpson_integral(rho.*grid, h)
+    Vh[1] = 4pi*simpson_integral(rho .* grid, h)
 
     # preevaluation of the functions to integrate
     grid_1 = 1 ./ grid

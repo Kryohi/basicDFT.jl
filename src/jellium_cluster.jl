@@ -2,7 +2,7 @@ using CSV
 include("kohn_sham.jl")
 
 Rc(N,rs) = cbrt(N)*rs # radius of the positive jellium
-rho_b(rs) = 3/(4π*rs^3) # density of charge inside the nucleus
+rho_b(N,rs) = N*3/(4π*rs^3) # density of charge inside the nucleus
 
 function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
     if r > Rc
@@ -12,28 +12,38 @@ function V_ext(r::Float64, Rc::Float64, rho_b::Float64)
     end
 end
 
-N = 8
+N = 20
 rs_Na = 3.93
 rs_K = 4.86
-rmax = 28
+rmax = 20
 h = 5e-4
 grid = Vector(h:h:rmax)
-α = 0.2 # mixing coefficient of the densities
+α = 0.1 # mixing coefficient of the densities
 
 
-Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(rs_Na))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=80, stride=2)
+Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2, verbose=false)
 CSV.write("./Data/ksfunctions_Na_$N.csv", data)
 CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-Vext = V_ext.(grid, Rc(N,rs_K), rho_b(rs_K))
-@time data, energy = solve_KS(N, α, grid, Vext, max_iter=80, stride=2)
+Vext = V_ext.(grid, Rc(N,rs_K), rho_b(N,rs_K))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2)
 CSV.write("./Data/ksfunctions_K_$N.csv", data)
 CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
+N = 8
+Vext = V_ext.(grid, Rc(N,rs_Na), rho_b(N,rs_Na))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2, verbose=false)
+CSV.write("./Data/ksfunctions_Na_$N.csv", data)
+CSV.write("./Data/ksenergy_Na_$N.csv", energy)
 
-Juno.@profiler solve_KS(20, α, grid, Vext, max_iter=10, stride=2)
+Vext = V_ext.(grid, Rc(N,rs_K), rho_b(N,rs_K))
+@time data, energy = solve_KS(N, α, grid, Vext, max_iter=280, stride=2)
+CSV.write("./Data/ksfunctions_K_$N.csv", data)
+CSV.write("./Data/ksenergy_K_$N.csv", energy)
 
+#@time solve_KS(20, α, grid, Vext, max_iter=10, stride=2)
+#Juno.@profiler
 #@code_native V_h(grid, last_rho)
 #Juno.@profiler Vhtest(grid, rho)
 #@btime Vhtest(grid, rho)
